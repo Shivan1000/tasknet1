@@ -37,13 +37,28 @@ const Login = () => {
         return;
       }
 
-      // Simulate Signup & Database Entry
+      // Check if profile with this email already exists
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('email', email)
+        .single();
+
+      if (existingProfile) {
+        showAlert('Account with this email already exists. Please login.', 'error');
+        setLoading(false);
+        return;
+      }
+
+      // Create new account with password
       const { error } = await supabase
         .from('profiles')
-        .upsert({ 
-          email: email, 
+        .insert({ 
+          email: email,
+          password: password, // Store password (in production, this should be hashed)
           reddit_username: redditUsername,
           server_username: serverUsername,
+          created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         });
 
@@ -55,12 +70,33 @@ const Login = () => {
         setTimeout(() => navigate('/'), 1500);
       }
     } else {
-      // Simulate Login
+      // Login - Verify password
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('email, password')
+        .eq('email', email)
+        .single();
+
+      if (error || !profile) {
+        showAlert('Account not found. Please sign up first.', 'error');
+        setLoading(false);
+        return;
+      }
+
+      // Check if password matches
+      if (profile.password !== password) {
+        showAlert('Incorrect password. Please try again.', 'error');
+        setLoading(false);
+        return;
+      }
+
+      // Update last login
+      await supabase
+        .from('profiles')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('email', email);
+      
       localStorage.setItem('user_email', email);
-      
-      // Check if profile exists and update last login
-      await supabase.from('profiles').upsert({ email: email, updated_at: new Date().toISOString() });
-      
       showAlert('Login successful! Redirecting...', 'success');
       setTimeout(() => navigate('/'), 1000);
     }
@@ -174,6 +210,7 @@ const Login = () => {
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-blue-500 transition-colors" size={18} />
                 <input
                   type="password"
+                  required
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

@@ -11,6 +11,9 @@ ALTER TABLE tasks ADD COLUMN IF NOT EXISTS submission_data JSONB;
 -- Add balance to profiles
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS balance DECIMAL(10,2) DEFAULT 0.00;
 
+-- Add password column to profiles for authentication
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS password TEXT;
+
 -- Create alerts table
 CREATE TABLE IF NOT EXISTS admin_alerts (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
