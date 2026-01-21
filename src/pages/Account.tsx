@@ -271,7 +271,7 @@ const Account = () => {
               {/* Linked Accounts Display */}
               <div className="space-y-4">
                 <label className="block text-[10px] font-black text-gray-600 uppercase tracking-[0.2em] ml-1">Linked Accounts</label>
-                {(redditUsername) ? (
+                {(redditLink && redditUsername && (fetchingReddit || redditStatus)) ? (
                   <div className="p-5 bg-[#0a0a0a] border border-white/5 rounded-3xl flex items-center justify-between group hover:border-white/10 transition-all shadow-xl">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-[#FF4500]/10 rounded-2xl flex items-center justify-center border border-[#FF4500]/20">
@@ -306,9 +306,7 @@ const Account = () => {
                                 </span>
                               )}
                             </>
-                          ) : (
-                            <span className="text-[10px] font-bold text-gray-600">Linked account</span>
-                          )}
+                          ) : null}
                         </div>
                       </div>
                     </div>
