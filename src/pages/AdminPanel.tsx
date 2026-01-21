@@ -796,8 +796,8 @@ const AdminPanel = () => {
         <section className="mt-20">
           <h2 className="text-xl font-bold mb-8">Existing Tasks</h2>
           <div className="space-y-4">
-            {tasks.length > 0 ? (
-              tasks.map((task) => (
+            {tasks.filter(t => t.status !== 'verified').length > 0 ? (
+              tasks.filter(t => t.status !== 'verified').map((task) => (
                 <div key={task.id} className={`p-6 rounded-3xl border transition-all ${task.is_hidden ? 'bg-white/[0.01] border-white/5 opacity-50' : 'bg-white/[0.03] border-white/10'}`}>
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex-1">
@@ -831,7 +831,7 @@ const AdminPanel = () => {
                 </div>
               ))
             ) : (
-              <p className="text-gray-500 text-center py-10">No tasks found in database.</p>
+              <p className="text-gray-500 text-center py-10">No active tasks found in database.</p>
             )}
           </div>
         </section>
