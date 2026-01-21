@@ -300,7 +300,7 @@ const Navbar = () => {
 
           <button 
             onClick={() => navigate('/account')}
-            className="p-2 text-gray-400 hover:text-blue-500 transition-all hover:scale-110 active:scale-95"
+            className="hidden md:block p-2 text-gray-400 hover:text-blue-500 transition-all hover:scale-110 active:scale-95"
             title="Account Settings"
           >
             <Settings size={20} />
@@ -429,6 +429,22 @@ const Navbar = () => {
                 <span className="font-bold">{item.label}</span>
               </NavLink>
             ))}
+            
+            <button
+              onClick={() => { navigate('/account'); setIsMobileMenuOpen(false); }}
+              className="flex items-center gap-4 px-6 py-4 rounded-2xl transition-all text-gray-400 hover:text-white hover:bg-white/5"
+            >
+              <Settings size={18} />
+              <span className="font-bold">Settings</span>
+            </button>
+            
+            <button
+              onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }}
+              className="flex items-center gap-4 px-6 py-4 rounded-2xl transition-all text-red-500 hover:bg-red-500/10"
+            >
+              <LogOut size={18} />
+              <span className="font-bold">Sign Out</span>
+            </button>
           </nav>
         </div>
       )}
