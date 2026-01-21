@@ -12,7 +12,6 @@ interface CustomAlert {
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [redditUsername, setRedditUsername] = useState('');
   const [serverUsername, setServerUsername] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -31,7 +30,7 @@ const Login = () => {
     setLoading(true);
 
     if (isSignUp) {
-      if (!redditUsername || !serverUsername) {
+      if (!serverUsername) {
         showAlert('Please fill in all fields.', 'error');
         setLoading(false);
         return;
@@ -56,7 +55,6 @@ const Login = () => {
         .insert({ 
           email: email,
           password: password, // Store password (in production, this should be hashed)
-          reddit_username: redditUsername,
           server_username: serverUsername,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -154,37 +152,20 @@ const Login = () => {
 
           <form className="space-y-5" onSubmit={handleSubmit}>
             {isSignUp && (
-              <>
-                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <label className="text-xs font-bold text-gray-500 uppercase ml-1">Server Username</label>
-                  <div className="relative group">
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-blue-500 transition-colors" size={18} />
-                    <input
-                      type="text"
-                      required
-                      placeholder="Enter server username"
-                      value={serverUsername}
-                      onChange={(e) => setServerUsername(e.target.value)}
-                      className="w-full pl-12 pr-4 py-4 bg-white/[0.03] border border-white/5 rounded-2xl focus:outline-none focus:border-blue-500 transition-all text-sm"
-                    />
-                  </div>
+              <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Server Username</label>
+                <div className="relative group">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-blue-500 transition-colors" size={18} />
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter server username"
+                    value={serverUsername}
+                    onChange={(e) => setServerUsername(e.target.value)}
+                    className="w-full pl-12 pr-4 py-4 bg-white/[0.03] border border-white/5 rounded-2xl focus:outline-none focus:border-blue-500 transition-all text-sm"
+                  />
                 </div>
-
-                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300 delay-75">
-                  <label className="text-xs font-bold text-gray-500 uppercase ml-1">Reddit Username</label>
-                  <div className="relative group">
-                    <LayoutGrid className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-blue-500 transition-colors" size={18} />
-                    <input
-                      type="text"
-                      required
-                      placeholder="reddit_handle"
-                      value={redditUsername}
-                      onChange={(e) => setRedditUsername(e.target.value)}
-                      className="w-full pl-12 pr-4 py-4 bg-white/[0.03] border border-white/5 rounded-2xl focus:outline-none focus:border-blue-500 transition-all text-sm"
-                    />
-                  </div>
-                </div>
-              </>
+              </div>
             )}
 
             <div className="space-y-2">
