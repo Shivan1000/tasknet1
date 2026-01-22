@@ -410,7 +410,7 @@ const Navbar = () => {
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="md:hidden absolute top-20 left-0 right-0 bg-black/95 backdrop-blur-xl border-b border-white/5 animate-in slide-in-from-top duration-300">
+        <div className="md:hidden absolute top-20 left-0 right-0 bg-black/95 backdrop-blur-xl border-b border-white/5 animate-in slide-in-from-top duration-300 z-[100]">
           <nav className="flex flex-col p-4 gap-2">
             {menuItems.map((item) => (
               <NavLink
@@ -429,6 +429,34 @@ const Navbar = () => {
                 <span className="font-bold">{item.label}</span>
               </NavLink>
             ))}
+
+            {/* Divider */}
+            <div className="h-[1px] bg-white/5 my-2 mx-4"></div>
+
+            {/* Settings Button */}
+            <NavLink
+              to="/account"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center gap-4 px-6 py-4 rounded-2xl transition-all ${
+                  isActive 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`
+              }
+            >
+              <Settings size={18} />
+              <span className="font-bold">Settings</span>
+            </NavLink>
+
+            {/* Logout Button */}
+            <button
+              onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }}
+              className="flex items-center gap-4 px-6 py-4 rounded-2xl text-red-500 hover:bg-red-500/10 transition-all"
+            >
+              <LogOut size={18} />
+              <span className="font-bold">Sign Out</span>
+            </button>
           </nav>
         </div>
       )}
