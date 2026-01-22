@@ -49,6 +49,12 @@ const AdminPanel = () => {
   const [alertMessage, setAlertMessage] = useState('');
   const [isAlertSending, setIsAlertSending] = useState(false);
   
+  // Reject Modal State
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectTargetTask, setRejectTargetTask] = useState<Task | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [isRejecting, setIsRejecting] = useState(false);
+  
   const [taskName, setTaskName] = useState('');
   const [tier, setTier] = useState('Tier 1');
   const [subreddit, setSubreddit] = useState('');
@@ -94,6 +100,14 @@ const AdminPanel = () => {
     if (isAuthenticated) {
       fetchTasks();
       fetchProfiles();
+      
+      // Auto-refresh every 10 seconds
+      const refreshInterval = setInterval(() => {
+        fetchTasks();
+        fetchProfiles();
+      }, 10000);
+      
+      return () => clearInterval(refreshInterval);
     }
     
     const handleClickOutside = (event: MouseEvent) => {
@@ -278,6 +292,50 @@ const AdminPanel = () => {
     setAlertTargetEmail(email);
     setAlertMessage('');
     setIsAlertModalOpen(true);
+  };
+
+  const handleOpenRejectModal = (task: Task) => {
+    setRejectTargetTask(task);
+    setRejectReason('');
+    setIsRejectModalOpen(true);
+  };
+
+  const handleReject = async () => {
+    if (!rejectTargetTask || !rejectReason.trim()) return;
+    
+    setIsRejecting(true);
+    
+    // 1. Update task status to rejected
+    const { error: taskError } = await supabase
+      .from('tasks')
+      .update({ status: 'rejected' })
+      .eq('id', rejectTargetTask.id);
+
+    if (taskError) {
+      showAlert('Error rejecting task: ' + taskError.message, 'error');
+      setIsRejecting(false);
+      return;
+    }
+
+    // 2. Send rejection reason to user's alerts
+    const { error: alertError } = await supabase
+      .from('admin_alerts')
+      .insert([{ 
+        user_email: rejectTargetTask.claimed_by, 
+        message: `Your submission for task "${rejectTargetTask.title}" (${rejectTargetTask.task_id_display}) has been rejected.\n\nReason: ${rejectReason}` 
+      }]);
+
+    if (alertError) {
+      showAlert('Task rejected but failed to notify user: ' + alertError.message, 'error');
+    } else {
+      showAlert('Task rejected and user notified!', 'success');
+    }
+
+    setIsRejectModalOpen(false);
+    setRejectTargetTask(null);
+    setRejectReason('');
+    setIsRejecting(false);
+    fetchTasks();
   };
 
   const submitAdminAlert = async () => {
@@ -893,6 +951,13 @@ const AdminPanel = () => {
                     VERIFY
                   </button>
                   <button 
+                    onClick={() => handleOpenRejectModal(task)}
+                    className="flex-1 md:flex-none px-8 py-4 bg-red-600 text-white rounded-2xl font-black text-sm hover:bg-red-700 transition-all shadow-lg shadow-red-600/20 flex items-center justify-center gap-2"
+                  >
+                    <X size={18} strokeWidth={3} />
+                    REJECT
+                  </button>
+                  <button 
                     onClick={() => handleSendAlert(task.claimed_by)}
                     className="flex-1 md:flex-none px-8 py-4 bg-white/[0.03] border border-white/10 text-gray-400 rounded-2xl font-bold text-sm hover:text-white hover:bg-white/10 transition-all flex items-center justify-center gap-2"
                   >
@@ -966,11 +1031,13 @@ const AdminPanel = () => {
                         <div className={`w-1.5 h-1.5 rounded-full ${
                           task.status === 'verified' ? 'bg-emerald-500' : 
                           task.status === 'submitted' ? 'bg-amber-500 animate-pulse' : 
+                          task.status === 'rejected' ? 'bg-red-500' :
                           'bg-blue-500'
                         }`}></div>
                         <span className={`text-[10px] font-black uppercase tracking-widest ${
                           task.status === 'verified' ? 'text-emerald-500' : 
                           task.status === 'submitted' ? 'text-amber-500' : 
+                          task.status === 'rejected' ? 'text-red-500' :
                           'text-blue-500'
                         }`}>
                           {task.status}
@@ -1039,6 +1106,57 @@ const AdminPanel = () => {
                       <>
                         Send Alert
                         <Send size={18} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Reject Modal */}
+        {isRejectModalOpen && rejectTargetTask && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="w-full max-w-lg bg-[#0a0a0a] border border-white/10 rounded-[40px] p-8 sm:p-12 shadow-2xl animate-in zoom-in duration-300">
+              <div className="flex flex-col items-center text-center mb-8">
+                <div className="w-16 h-16 bg-red-600/10 rounded-2xl flex items-center justify-center mb-6 border border-red-500/20">
+                  <X className="text-red-500" size={32} />
+                </div>
+                <h2 className="text-2xl font-black tracking-tight mb-2 uppercase italic">Reject Submission</h2>
+                <p className="text-gray-500 text-sm">Task: <span className="text-red-400 font-bold">{rejectTargetTask.title}</span></p>
+                <p className="text-gray-600 text-xs mt-1">User: {rejectTargetTask.claimed_by}</p>
+              </div>
+
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">Rejection Reason</label>
+                  <textarea
+                    rows={4}
+                    autoFocus
+                    placeholder="Enter the reason for rejection..."
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    className="w-full px-6 py-5 bg-white/[0.03] border border-white/5 rounded-3xl focus:outline-none focus:border-red-500 transition-all text-sm placeholder:text-gray-600 resize-none shadow-inner"
+                  ></textarea>
+                </div>
+
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => { setIsRejectModalOpen(false); setRejectTargetTask(null); setRejectReason(''); }}
+                    className="flex-1 py-4 bg-white/[0.03] border border-white/10 text-gray-400 rounded-2xl font-bold text-sm hover:text-white hover:bg-white/5 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleReject}
+                    disabled={!rejectReason.trim() || isRejecting}
+                    className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black text-sm hover:bg-red-700 transition-all shadow-lg shadow-red-600/20 flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isRejecting ? 'Rejecting...' : (
+                      <>
+                        Reject Task
+                        <X size={18} strokeWidth={3} />
                       </>
                     )}
                   </button>
