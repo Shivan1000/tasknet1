@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Layout from '../components/Layout';
-import { Send, Plus, Trash2, Globe, Tag, DollarSign, Clock, Edit2, Eye, EyeOff, User, ChevronDown, Check, X, Search, AlertCircle, Shield, Lock, MessageSquare, CheckCircle2 } from 'lucide-react';
+import { Send, Plus, Trash2, Globe, Tag, DollarSign, Clock, Edit2, Eye, EyeOff, User, ChevronDown, Check, X, Search, AlertCircle, Shield, Lock, MessageSquare, CheckCircle2, Users, Wallet, CreditCard, ExternalLink } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Task {
@@ -27,7 +27,20 @@ interface Profile {
   reddit_username: string;
   server_username: string;
   discord_username: string;
+  balance: number;
+  payout_methods: Array<{
+    id: string;
+    type: 'binance' | 'usdt' | 'upi';
+    value: string;
+    label: string;
+  }>;
 }
+
+const PAYMENT_ICONS: Record<string, string> = {
+  binance: 'https://cryptologos.cc/logos/binance-coin-bnb-logo.png',
+  usdt: 'https://cryptologos.cc/logos/tether-usdt-logo.png',
+  upi: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/UPI-Logo-vector.svg/1200px-UPI-Logo-vector.svg.png'
+};
 
 interface CustomAlert {
   show: boolean;
@@ -54,6 +67,9 @@ const AdminPanel = () => {
   const [rejectTargetTask, setRejectTargetTask] = useState<Task | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [isRejecting, setIsRejecting] = useState(false);
+  
+  // Users Tab State
+  const [expandedUserEmail, setExpandedUserEmail] = useState<string | null>(null);
   
   const [taskName, setTaskName] = useState('');
   const [tier, setTier] = useState('Tier 1');
@@ -144,7 +160,7 @@ const AdminPanel = () => {
   const fetchProfiles = async () => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('email, reddit_username, server_username, discord_username');
+      .select('email, reddit_username, server_username, discord_username, balance, payout_methods');
     
     if (error) {
       console.error('Error fetching profiles:', error);
@@ -463,17 +479,19 @@ const AdminPanel = () => {
             </div>
           </div>
           <h1 className="text-3xl font-black tracking-tighter uppercase italic">
-            {activeAdminTab === 'Tasks' ? 'Task Management' : 'Submission Verifications'}
+            {activeAdminTab === 'Tasks' ? 'Task Management' : 
+             activeAdminTab === 'Users' ? 'User Management' : 'Submission Verifications'}
           </h1>
           <p className="text-gray-500 text-sm mt-1">
-            {activeAdminTab === 'Tasks' ? 'Distribute new tasks to the network.' : 'Review and approve user submissions.'}
+            {activeAdminTab === 'Tasks' ? 'Distribute new tasks to the network.' : 
+             activeAdminTab === 'Users' ? 'View all registered users and their details.' : 'Review and approve user submissions.'}
           </p>
         </header>
 
-        <div className="flex bg-white/[0.03] border border-white/5 p-1 rounded-2xl mb-12 w-fit">
+        <div className="flex flex-wrap bg-white/[0.03] border border-white/5 p-1 rounded-2xl mb-12 w-fit gap-1">
           <button 
             onClick={() => setActiveAdminTab('Tasks')}
-            className={`px-8 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+            className={`px-4 md:px-8 py-2.5 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
               activeAdminTab === 'Tasks' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-gray-500 hover:text-white'
             }`}
           >
@@ -481,7 +499,7 @@ const AdminPanel = () => {
           </button>
           <button 
             onClick={() => setActiveAdminTab('Verification')}
-            className={`px-8 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all relative ${
+            className={`px-4 md:px-8 py-2.5 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all relative ${
               activeAdminTab === 'Verification' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-gray-500 hover:text-white'
             }`}
           >
@@ -494,11 +512,20 @@ const AdminPanel = () => {
           </button>
           <button 
             onClick={() => setActiveAdminTab('Submissions')}
-            className={`px-8 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+            className={`px-4 md:px-8 py-2.5 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
               activeAdminTab === 'Submissions' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-gray-500 hover:text-white'
             }`}
           >
-            Total Submissions
+            Submissions
+          </button>
+          <button 
+            onClick={() => setActiveAdminTab('Users')}
+            className={`px-4 md:px-8 py-2.5 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
+              activeAdminTab === 'Users' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-gray-500 hover:text-white'
+            }`}
+          >
+            Users
+            <span className="ml-1.5 text-[9px] opacity-70">({profiles.length})</span>
           </button>
         </div>
 
@@ -975,6 +1002,141 @@ const AdminPanel = () => {
           </div>
         )}
       </section>
+    ) : activeAdminTab === 'Users' ? (
+      <section className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-xl font-bold italic uppercase tracking-tight">Registered Users</h2>
+          <div className="px-4 py-2 bg-white/[0.03] border border-white/5 rounded-2xl">
+            <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Total: </span>
+            <span className="text-sm font-black text-white">{profiles.length}</span>
+          </div>
+        </div>
+    
+        {profiles.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {profiles.map((profile) => {
+              const userTasks = tasks.filter(t => t.claimed_by === profile.email && (t.status === 'verified' || t.status === 'submitted'));
+              const isExpanded = expandedUserEmail === profile.email;
+                  
+              return (
+                <div key={profile.email} className="bg-white/[0.02] border border-white/5 rounded-[28px] p-5 md:p-6 hover:border-blue-500/20 transition-all">
+                  {/* User Header */}
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center text-white font-black text-lg flex-shrink-0">
+                      {(profile.server_username || profile.email)[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-white text-sm truncate">{profile.server_username || profile.email.split('@')[0]}</h3>
+                      <p className="text-[11px] text-gray-500 truncate">{profile.email}</p>
+                      {profile.reddit_username && (
+                        <a 
+                          href={`https://reddit.com/u/${profile.reddit_username}`} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="text-[10px] text-orange-500 font-bold hover:underline flex items-center gap-1 mt-1"
+                        >
+                          u/{profile.reddit_username}
+                          <ExternalLink size={10} />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+    
+                  {/* Balance */}
+                  <div className="flex items-center justify-between p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl mb-4">
+                    <div className="flex items-center gap-2">
+                      <Wallet size={14} className="text-emerald-500" />
+                      <span className="text-[10px] font-bold text-gray-400 uppercase">Balance</span>
+                    </div>
+                    <span className="text-sm font-black text-emerald-500">${(profile.balance || 0).toFixed(2)}</span>
+                  </div>
+    
+                  {/* Payout Methods */}
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CreditCard size={14} className="text-gray-500" />
+                      <span className="text-[10px] font-bold text-gray-400 uppercase">Payout Methods</span>
+                    </div>
+                    {profile.payout_methods && profile.payout_methods.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {profile.payout_methods.map((method) => (
+                          <div key={method.id} className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] border border-white/5 rounded-xl">
+                            <img 
+                              src={PAYMENT_ICONS[method.type]} 
+                              alt={method.label}
+                              className="w-4 h-4 object-contain"
+                            />
+                            <span className="text-[10px] font-bold text-gray-300 truncate max-w-[100px]">{method.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-gray-600 italic">No payout methods</p>
+                    )}
+                  </div>
+    
+                  {/* Tasks Dropdown */}
+                  <div>
+                    <button
+                      onClick={() => setExpandedUserEmail(isExpanded ? null : profile.email)}
+                      className="w-full flex items-center justify-between p-3 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.04] transition-all"
+                    >
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 size={14} className="text-blue-500" />
+                        <span className="text-[10px] font-bold text-gray-400 uppercase">Completed Tasks</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-white">{userTasks.length}</span>
+                        <ChevronDown size={14} className={`text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                      </div>
+                    </button>
+                        
+                    {isExpanded && userTasks.length > 0 && (
+                      <div className="mt-2 p-3 bg-black/40 rounded-xl border border-white/5 space-y-2 max-h-48 overflow-y-auto">
+                        {userTasks.map((task) => (
+                          <div key={task.id} className="flex items-center justify-between gap-2 p-2 bg-white/[0.02] rounded-lg">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[9px] font-black text-blue-500">{task.task_id_display}</span>
+                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase ${
+                                  task.status === 'verified' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'
+                                }`}>{task.status}</span>
+                              </div>
+                              <p className="text-[10px] text-gray-300 truncate">{task.title}</p>
+                            </div>
+                            {task.submission_data?.main_link && (
+                              <a 
+                                href={task.submission_data.main_link}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="p-1.5 text-gray-500 hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-all flex-shrink-0"
+                                title="View submission"
+                              >
+                                <ExternalLink size={12} />
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                        
+                    {isExpanded && userTasks.length === 0 && (
+                      <div className="mt-2 p-4 bg-black/40 rounded-xl border border-white/5 text-center">
+                        <p className="text-[10px] text-gray-600">No tasks completed yet</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="py-20 text-center bg-white/[0.01] border border-dashed border-white/10 rounded-[32px]">
+            <Users size={48} className="mx-auto text-gray-700 mb-4" />
+            <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">No users registered yet.</p>
+          </div>
+        )}
+      </section>
     ) : (
       <section className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
         <div className="flex items-center justify-between mb-8">
@@ -984,13 +1146,13 @@ const AdminPanel = () => {
             <span className="text-sm font-black text-white">{tasks.filter(t => t.status !== 'available').length}</span>
           </div>
         </div>
-
+    
         <div className="space-y-3">
           {tasks.filter(t => t.status !== 'available').length > 0 ? (
             tasks.filter(t => t.status !== 'available').map(task => {
               const submissionDate = task.created_at ? new Date(task.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '---';
               const userProfile = profiles.find(p => p.email === task.claimed_by);
-              
+                  
               return (
                 <div key={task.id} className="bg-white/[0.02] border border-white/5 p-5 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-4 group hover:border-blue-500/20 transition-all">
                   <div className="flex items-center gap-4 flex-1">
@@ -1019,7 +1181,7 @@ const AdminPanel = () => {
                       </div>
                     </div>
                   </div>
-
+    
                   <div className="flex items-center gap-6">
                     <div className="text-right">
                       <span className="block text-[9px] font-black text-gray-600 uppercase tracking-widest mb-0.5">Reward</span>
