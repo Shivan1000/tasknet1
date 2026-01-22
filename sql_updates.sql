@@ -17,6 +17,17 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS password TEXT;
 -- Add payout_methods column to profiles for storing payment methods
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS payout_methods JSONB DEFAULT '[]'::jsonb;
 
+-- Create withdrawals table for tracking withdrawal requests
+CREATE TABLE IF NOT EXISTS withdrawals (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  transaction_id TEXT UNIQUE NOT NULL,
+  user_email TEXT NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  payout_method JSONB NOT NULL,
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
 -- Create alerts table
 CREATE TABLE IF NOT EXISTS admin_alerts (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

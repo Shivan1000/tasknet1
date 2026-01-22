@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Layout from '../components/Layout';
-import { Send, Plus, Trash2, Globe, Tag, DollarSign, Clock, Edit2, Eye, EyeOff, User, ChevronDown, Check, X, Search, AlertCircle, Shield, Lock, MessageSquare, CheckCircle2, Users, Wallet, CreditCard, ExternalLink } from 'lucide-react';
+import { Send, Plus, Trash2, Globe, Tag, DollarSign, Clock, Edit2, Eye, EyeOff, User, ChevronDown, Check, X, Search, AlertCircle, Shield, Lock, MessageSquare, CheckCircle2, Users, Wallet, CreditCard, ExternalLink, Banknote } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Task {
@@ -48,6 +48,21 @@ interface CustomAlert {
   type: 'success' | 'error' | 'info';
 }
 
+interface Withdrawal {
+  id: string;
+  transaction_id: string;
+  user_email: string;
+  amount: number;
+  payout_method: {
+    id: string;
+    type: 'binance' | 'usdt' | 'upi';
+    value: string;
+    label: string;
+  };
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+}
+
 const AdminPanel = () => {
   const [passcode, setPasscode] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -70,6 +85,7 @@ const AdminPanel = () => {
   
   // Users Tab State
   const [expandedUserEmail, setExpandedUserEmail] = useState<string | null>(null);
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   
   const [taskName, setTaskName] = useState('');
   const [tier, setTier] = useState('Tier 1');
@@ -116,11 +132,13 @@ const AdminPanel = () => {
     if (isAuthenticated) {
       fetchTasks();
       fetchProfiles();
+      fetchWithdrawals();
       
       // Auto-refresh every 10 seconds
       const refreshInterval = setInterval(() => {
         fetchTasks();
         fetchProfiles();
+        fetchWithdrawals();
       }, 10000);
       
       return () => clearInterval(refreshInterval);
@@ -166,6 +184,68 @@ const AdminPanel = () => {
       console.error('Error fetching profiles:', error);
     } else {
       setProfiles(data || []);
+    }
+  };
+
+  const fetchWithdrawals = async () => {
+    const { data, error } = await supabase
+      .from('withdrawals')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching withdrawals:', error);
+    } else {
+      setWithdrawals(data || []);
+    }
+  };
+
+  const handleApproveWithdrawal = async (withdrawal: Withdrawal) => {
+    const { error } = await supabase
+      .from('withdrawals')
+      .update({ status: 'approved' })
+      .eq('id', withdrawal.id);
+
+    if (error) {
+      showAlert('Error approving withdrawal: ' + error.message, 'error');
+    } else {
+      showAlert(`Withdrawal ${withdrawal.transaction_id} approved!`, 'success');
+      fetchWithdrawals();
+    }
+  };
+
+  const handleRejectWithdrawal = async (withdrawal: Withdrawal) => {
+    // Refund the amount back to user
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('balance')
+      .eq('email', withdrawal.user_email)
+      .single();
+
+    const currentBalance = parseFloat(profile?.balance || '0');
+    const newBalance = currentBalance + withdrawal.amount;
+
+    const { error: balanceError } = await supabase
+      .from('profiles')
+      .update({ balance: newBalance })
+      .eq('email', withdrawal.user_email);
+
+    if (balanceError) {
+      showAlert('Error refunding balance: ' + balanceError.message, 'error');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('withdrawals')
+      .update({ status: 'rejected' })
+      .eq('id', withdrawal.id);
+
+    if (error) {
+      showAlert('Error rejecting withdrawal: ' + error.message, 'error');
+    } else {
+      showAlert(`Withdrawal ${withdrawal.transaction_id} rejected and refunded!`, 'success');
+      fetchWithdrawals();
+      fetchProfiles();
     }
   };
 
@@ -1004,6 +1084,85 @@ const AdminPanel = () => {
       </section>
     ) : activeAdminTab === 'Users' ? (
       <section className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+        {/* Pending Withdrawals Section */}
+        {withdrawals.filter(w => w.status === 'pending').length > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold italic uppercase tracking-tight flex items-center gap-2">
+                <Banknote size={20} className="text-amber-500" />
+                Pending Withdrawals
+              </h2>
+              <span className="px-3 py-1 bg-amber-500/10 text-amber-500 text-[10px] font-black rounded-full animate-pulse">
+                {withdrawals.filter(w => w.status === 'pending').length} PENDING
+              </span>
+            </div>
+            <div className="space-y-3">
+              {withdrawals.filter(w => w.status === 'pending').map((withdrawal) => {
+                const userProfile = profiles.find(p => p.email === withdrawal.user_email);
+                return (
+                  <div key={withdrawal.id} className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 md:p-5">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center">
+                          <Banknote size={18} className="text-amber-500" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[10px] font-mono text-amber-500">{withdrawal.transaction_id}</span>
+                            <span className="text-[8px] font-black bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded uppercase">PENDING</span>
+                          </div>
+                          <p className="text-sm font-bold text-white">{userProfile?.server_username || withdrawal.user_email.split('@')[0]}</p>
+                          <p className="text-[10px] text-gray-500">{withdrawal.user_email}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="text-[9px] font-black text-gray-600 uppercase mb-0.5">Amount</p>
+                          <p className="text-lg font-black text-emerald-500">${withdrawal.amount.toFixed(2)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[9px] font-black text-gray-600 uppercase mb-0.5">Method</p>
+                          <div className="flex items-center gap-1.5">
+                            <img 
+                              src={PAYMENT_ICONS[withdrawal.payout_method?.type] || ''} 
+                              alt={withdrawal.payout_method?.label || 'Unknown'}
+                              className="w-4 h-4 object-contain"
+                            />
+                            <span className="text-xs text-gray-300">{withdrawal.payout_method?.label}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleApproveWithdrawal(withdrawal)}
+                          className="px-4 py-2 bg-emerald-600 text-white rounded-xl font-bold text-xs hover:bg-emerald-700 transition-all flex items-center gap-1"
+                        >
+                          <Check size={14} />
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleRejectWithdrawal(withdrawal)}
+                          className="px-4 py-2 bg-red-600/20 text-red-500 border border-red-500/30 rounded-xl font-bold text-xs hover:bg-red-600 hover:text-white transition-all flex items-center gap-1"
+                        >
+                          <X size={14} />
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-500">
+                      <span>Payout to: <span className="text-gray-300 font-mono">{withdrawal.payout_method?.value}</span></span>
+                      <span>{new Date(withdrawal.created_at).toLocaleString()}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-xl font-bold italic uppercase tracking-tight">Registered Users</h2>
           <div className="px-4 py-2 bg-white/[0.03] border border-white/5 rounded-2xl">
