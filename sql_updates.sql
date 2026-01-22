@@ -14,6 +14,9 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS balance DECIMAL(10,2) DEFAULT 0.00
 -- Add password column to profiles for authentication
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS password TEXT;
 
+-- Add payout_methods column to profiles for storing payment methods
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS payout_methods JSONB DEFAULT '[]'::jsonb;
+
 -- Create alerts table
 CREATE TABLE IF NOT EXISTS admin_alerts (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

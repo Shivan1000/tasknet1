@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { Wallet, ArrowUpRight, History, CreditCard, Inbox, Check, X, AlertCircle } from 'lucide-react';
+import { Wallet, ArrowUpRight, History, CreditCard, Inbox, Check, X, AlertCircle, Plus, Edit2, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface CustomAlert {
@@ -9,10 +9,40 @@ interface CustomAlert {
   type: 'success' | 'error' | 'info';
 }
 
+interface PayoutMethod {
+  id: string;
+  type: 'binance' | 'usdt' | 'upi';
+  value: string;
+  label: string;
+}
+
+const PAYMENT_ICONS = {
+  binance: 'https://cryptologos.cc/logos/binance-coin-bnb-logo.png',
+  usdt: 'https://cryptologos.cc/logos/tether-usdt-logo.png',
+  upi: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/UPI-Logo-vector.svg/1200px-UPI-Logo-vector.svg.png'
+};
+
+const PAYMENT_LABELS = {
+  binance: 'Binance ID',
+  usdt: 'USDT Wallet',
+  upi: 'UPI ID'
+};
+
 const WithdrawEarnings = () => {
   const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const userEmail = localStorage.getItem('user_email') || '';
+  
+  // Payout Methods State
+  const [payoutMethods, setPayoutMethods] = useState<PayoutMethod[]>([]);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [selectedType, setSelectedType] = useState<'binance' | 'usdt' | 'upi' | null>(null);
+  const [methodValue, setMethodValue] = useState('');
+  const [editingMethod, setEditingMethod] = useState<PayoutMethod | null>(null);
+  const [deletingMethod, setDeletingMethod] = useState<PayoutMethod | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Custom Alert State
   const [activeAlert, setActiveAlert] = useState<CustomAlert>({ show: false, message: '', type: 'info' });
@@ -25,6 +55,7 @@ const WithdrawEarnings = () => {
   useEffect(() => {
     if (userEmail) {
       fetchBalance();
+      fetchPayoutMethods();
     }
   }, [userEmail]);
 
@@ -38,6 +69,122 @@ const WithdrawEarnings = () => {
     
     if (data) setBalance(data.balance || 0);
     setLoading(false);
+  };
+
+  const fetchPayoutMethods = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('payout_methods')
+      .eq('email', userEmail)
+      .single();
+    
+    if (data?.payout_methods) {
+      setPayoutMethods(data.payout_methods);
+    }
+  };
+
+  const savePayoutMethods = async (methods: PayoutMethod[]) => {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ payout_methods: methods })
+      .eq('email', userEmail);
+    
+    if (error) {
+      showAlert('Error saving payout method: ' + error.message, 'error');
+      return false;
+    }
+    return true;
+  };
+
+  const handleAddMethod = async () => {
+    if (!selectedType || !methodValue.trim()) return;
+    
+    setIsSaving(true);
+    const newMethod: PayoutMethod = {
+      id: Date.now().toString(),
+      type: selectedType,
+      value: methodValue.trim(),
+      label: PAYMENT_LABELS[selectedType]
+    };
+    
+    const updatedMethods = [...payoutMethods, newMethod];
+    const success = await savePayoutMethods(updatedMethods);
+    
+    if (success) {
+      setPayoutMethods(updatedMethods);
+      showAlert('Payout method added successfully!', 'success');
+      closeAddModal();
+    }
+    setIsSaving(false);
+  };
+
+  const handleEditMethod = async () => {
+    if (!editingMethod || !methodValue.trim()) return;
+    
+    setIsSaving(true);
+    const updatedMethods = payoutMethods.map(m => 
+      m.id === editingMethod.id ? { ...m, value: methodValue.trim() } : m
+    );
+    
+    const success = await savePayoutMethods(updatedMethods);
+    if (success) {
+      setPayoutMethods(updatedMethods);
+      showAlert('Payout method updated!', 'success');
+      closeEditModal();
+    }
+    setIsSaving(false);
+  };
+
+  const handleDeleteMethod = async () => {
+    if (!deletingMethod) return;
+    
+    setIsSaving(true);
+    const updatedMethods = payoutMethods.filter(m => m.id !== deletingMethod.id);
+    
+    const success = await savePayoutMethods(updatedMethods);
+    if (success) {
+      setPayoutMethods(updatedMethods);
+      showAlert('Payout method removed.', 'success');
+      closeDeleteModal();
+    }
+    setIsSaving(false);
+  };
+
+  const openEditModal = (method: PayoutMethod) => {
+    setEditingMethod(method);
+    setMethodValue(method.value);
+    setIsEditModalOpen(true);
+  };
+
+  const openDeleteModal = (method: PayoutMethod) => {
+    setDeletingMethod(method);
+    setIsDeleteModalOpen(true);
+  };
+
+  const closeAddModal = () => {
+    setIsAddModalOpen(false);
+    setSelectedType(null);
+    setMethodValue('');
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditingMethod(null);
+    setMethodValue('');
+  };
+
+  const closeDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setDeletingMethod(null);
+  };
+
+  const getPlaceholder = (type: string) => {
+    switch(type) {
+      case 'binance': return 'Enter your Binance ID (e.g. 123456789)';
+      case 'usdt': return 'Enter your USDT wallet address (TRC20)';
+      case 'upi': return 'Enter your UPI ID (e.g. name@upi)';
+      default: return 'Enter value';
+    }
   };
 
   const history: any[] = []; // Empty data
@@ -104,21 +251,73 @@ const WithdrawEarnings = () => {
             <div className="absolute bottom-[-20%] right-[-5%] w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
           </div>
 
-          <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-8">
+          <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-6 md:p-8">
             <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
               <CreditCard size={20} className="text-blue-500" />
               Payout Methods
             </h3>
-            <div className="space-y-4">
-              <div className="p-4 border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-center py-10">
-                <p className="text-gray-500 text-xs mb-4">No payout methods linked.</p>
-                <button 
-                  onClick={() => showAlert('Payment method setup is currently restricted.', 'info')}
-                  className="text-blue-500 text-xs font-bold hover:underline"
-                >
-                  + Add Method
-                </button>
-              </div>
+            
+            <div className="space-y-3">
+              {/* Existing Payment Methods */}
+              {payoutMethods.map((method) => (
+                <div key={method.id} className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl hover:border-white/10 transition-all">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 md:w-12 md:h-12 bg-white rounded-xl flex items-center justify-center flex-shrink-0 p-2">
+                      <img 
+                        src={PAYMENT_ICONS[method.type]} 
+                        alt={method.label}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-0.5">{method.label}</p>
+                      <p className="text-sm font-bold text-white truncate">{method.value}</p>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button 
+                        onClick={() => openEditModal(method)}
+                        className="p-2 text-gray-500 hover:text-blue-500 hover:bg-blue-500/10 rounded-xl transition-all"
+                        title="Edit"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button 
+                        onClick={() => openDeleteModal(method)}
+                        className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
+                        title="Remove"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Empty State / Add Button */}
+              {payoutMethods.length === 0 ? (
+                <div className="p-4 border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-center py-10">
+                  <p className="text-gray-500 text-xs mb-4">No payout methods linked.</p>
+                  <button 
+                    onClick={() => setIsAddModalOpen(true)}
+                    className="text-blue-500 text-xs font-bold hover:underline flex items-center gap-1"
+                  >
+                    <Plus size={14} />
+                    Add Method
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {payoutMethods.length < 3 && (
+                    <button 
+                      onClick={() => setIsAddModalOpen(true)}
+                      className="w-full p-4 border border-dashed border-white/10 rounded-2xl text-blue-500 text-xs font-bold hover:border-blue-500/30 hover:bg-blue-500/5 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Plus size={14} />
+                      Add Another Payout Method
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -170,6 +369,216 @@ const WithdrawEarnings = () => {
           </div>
         </section>
       </div>
+
+      {/* Add Payment Method Modal */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="w-full max-w-md bg-[#0a0a0a] border border-white/10 rounded-[32px] p-6 md:p-8 shadow-2xl animate-in zoom-in duration-300 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-black tracking-tight uppercase">Add Payout Method</h2>
+              <button onClick={closeAddModal} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            {!selectedType ? (
+              <div className="space-y-3">
+                <p className="text-gray-500 text-sm mb-4">Select a payout method:</p>
+                
+                {/* Binance Option */}
+                <button
+                  onClick={() => setSelectedType('binance')}
+                  disabled={payoutMethods.some(m => m.type === 'binance')}
+                  className="w-full p-4 bg-white/[0.02] border border-white/5 rounded-2xl hover:border-amber-500/30 hover:bg-amber-500/5 transition-all flex items-center gap-4 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-white/5 disabled:hover:bg-transparent"
+                >
+                  <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center p-2">
+                    <img src={PAYMENT_ICONS.binance} alt="Binance" className="w-full h-full object-contain" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-bold text-white">Binance ID</p>
+                    <p className="text-xs text-gray-500">Pay via Binance Pay</p>
+                  </div>
+                  {payoutMethods.some(m => m.type === 'binance') && (
+                    <span className="ml-auto text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded">ADDED</span>
+                  )}
+                </button>
+
+                {/* USDT Option */}
+                <button
+                  onClick={() => setSelectedType('usdt')}
+                  disabled={payoutMethods.some(m => m.type === 'usdt')}
+                  className="w-full p-4 bg-white/[0.02] border border-white/5 rounded-2xl hover:border-emerald-500/30 hover:bg-emerald-500/5 transition-all flex items-center gap-4 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-white/5 disabled:hover:bg-transparent"
+                >
+                  <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center p-2">
+                    <img src={PAYMENT_ICONS.usdt} alt="USDT" className="w-full h-full object-contain" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-bold text-white">USDT Wallet</p>
+                    <p className="text-xs text-gray-500">TRC20 Network Address</p>
+                  </div>
+                  {payoutMethods.some(m => m.type === 'usdt') && (
+                    <span className="ml-auto text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded">ADDED</span>
+                  )}
+                </button>
+
+                {/* UPI Option */}
+                <button
+                  onClick={() => setSelectedType('upi')}
+                  disabled={payoutMethods.some(m => m.type === 'upi')}
+                  className="w-full p-4 bg-white/[0.02] border border-white/5 rounded-2xl hover:border-purple-500/30 hover:bg-purple-500/5 transition-all flex items-center gap-4 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-white/5 disabled:hover:bg-transparent"
+                >
+                  <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center p-2">
+                    <img src={PAYMENT_ICONS.upi} alt="UPI" className="w-full h-full object-contain" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-bold text-white">UPI ID</p>
+                    <p className="text-xs text-gray-500">Indian Payment Network</p>
+                  </div>
+                  {payoutMethods.some(m => m.type === 'upi') && (
+                    <span className="ml-auto text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded">ADDED</span>
+                  )}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
+                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-2">
+                    <img src={PAYMENT_ICONS[selectedType]} alt={PAYMENT_LABELS[selectedType]} className="w-full h-full object-contain" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-white">{PAYMENT_LABELS[selectedType]}</p>
+                    <button onClick={() => setSelectedType(null)} className="text-xs text-blue-500 hover:underline">Change method</button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">
+                    {PAYMENT_LABELS[selectedType]}
+                  </label>
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder={getPlaceholder(selectedType)}
+                    value={methodValue}
+                    onChange={(e) => setMethodValue(e.target.value)}
+                    className="w-full px-5 py-4 bg-white/[0.03] border border-white/5 rounded-2xl focus:outline-none focus:border-blue-500 transition-all text-sm"
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={closeAddModal}
+                    className="flex-1 py-4 bg-white/[0.03] border border-white/10 text-gray-400 rounded-2xl font-bold text-sm hover:text-white hover:bg-white/5 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAddMethod}
+                    disabled={!methodValue.trim() || isSaving}
+                    className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSaving ? 'Saving...' : 'Add Method'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit Payment Method Modal */}
+      {isEditModalOpen && editingMethod && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="w-full max-w-md bg-[#0a0a0a] border border-white/10 rounded-[32px] p-6 md:p-8 shadow-2xl animate-in zoom-in duration-300">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-black tracking-tight uppercase">Edit {editingMethod.label}</h2>
+              <button onClick={closeEditModal} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
+                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-2">
+                  <img src={PAYMENT_ICONS[editingMethod.type]} alt={editingMethod.label} className="w-full h-full object-contain" />
+                </div>
+                <p className="font-bold text-white">{editingMethod.label}</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">
+                  {editingMethod.label}
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder={getPlaceholder(editingMethod.type)}
+                  value={methodValue}
+                  onChange={(e) => setMethodValue(e.target.value)}
+                  className="w-full px-5 py-4 bg-white/[0.03] border border-white/5 rounded-2xl focus:outline-none focus:border-blue-500 transition-all text-sm"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={closeEditModal}
+                  className="flex-1 py-4 bg-white/[0.03] border border-white/10 text-gray-400 rounded-2xl font-bold text-sm hover:text-white hover:bg-white/5 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEditMethod}
+                  disabled={!methodValue.trim() || isSaving}
+                  className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && deletingMethod && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="w-full max-w-sm bg-[#0a0a0a] border border-white/10 rounded-[32px] p-6 md:p-8 shadow-2xl animate-in zoom-in duration-300 text-center">
+            <div className="w-16 h-16 bg-red-600/10 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-red-500/20">
+              <Trash2 className="text-red-500" size={28} />
+            </div>
+            <h2 className="text-xl font-black tracking-tight mb-2">Remove Method?</h2>
+            <p className="text-gray-500 text-sm mb-6">
+              Are you sure you want to remove your <span className="text-white font-bold">{deletingMethod.label}</span>? This action cannot be undone.
+            </p>
+            
+            <div className="flex items-center gap-3 p-4 bg-white/[0.02] border border-white/5 rounded-2xl mb-6">
+              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-2">
+                <img src={PAYMENT_ICONS[deletingMethod.type]} alt={deletingMethod.label} className="w-full h-full object-contain" />
+              </div>
+              <div className="text-left flex-1 min-w-0">
+                <p className="text-xs text-gray-500">{deletingMethod.label}</p>
+                <p className="text-sm font-bold text-white truncate">{deletingMethod.value}</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={closeDeleteModal}
+                className="flex-1 py-4 bg-white/[0.03] border border-white/10 text-gray-400 rounded-2xl font-bold text-sm hover:text-white hover:bg-white/5 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteMethod}
+                disabled={isSaving}
+                className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black text-sm hover:bg-red-700 transition-all shadow-lg shadow-red-600/20 disabled:opacity-50"
+              >
+                {isSaving ? 'Removing...' : 'Remove'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };
