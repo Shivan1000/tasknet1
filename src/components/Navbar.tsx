@@ -307,28 +307,25 @@ const Navbar = () => {
           </button>
           
           <div className="relative" ref={profileRef}>
-            <div className="flex items-center gap-2 px-2 py-1.5 rounded-full border border-white/5 bg-white/[0.03] group">
-              <div 
-                onClick={() => navigate('/account')}
-                className="flex items-center gap-3 pl-2 cursor-pointer group/name"
-              >
-                <span className="hidden sm:block text-sm font-bold text-white group-hover/name:text-blue-400 transition-colors max-w-[100px] truncate">
+            <div 
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              className="flex items-center gap-2 px-2 py-1.5 rounded-full border border-white/5 bg-white/[0.03] hover:bg-white/[0.06] transition-all cursor-pointer group"
+            >
+              <div className="flex items-center gap-3 pl-2">
+                <span className="hidden sm:block text-sm font-bold text-white group-hover:text-blue-400 transition-colors max-w-[100px] truncate">
                   {displayName}
                 </span>
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-xs font-black text-white shadow-[0_0_15px_rgba(37,99,235,0.3)] group-hover/name:scale-105 transition-transform uppercase">
+                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-xs font-black text-white shadow-[0_0_15px_rgba(37,99,235,0.3)] group-hover:scale-105 transition-transform uppercase">
                   {displayName[0]}
                 </div>
               </div>
-              <button 
-                onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="p-1 hover:bg-white/5 rounded-full transition-colors"
-              >
-                <ChevronDown size={14} className={`text-gray-500 transition-all duration-300 ${isProfileOpen ? 'rotate-180' : ''}`} />
-              </button>
+              <div className="p-1">
+                <ChevronDown size={14} className={`text-gray-500 transition-all duration-300 ${isProfileOpen ? 'rotate-180 text-blue-500' : ''}`} />
+              </div>
             </div>
 
             {isProfileOpen && (
-              <div className="absolute top-full right-0 mt-3 w-72 bg-[#080808] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="absolute top-full right-0 mt-3 w-[85vw] sm:w-72 bg-[#080808] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
                 {/* User Email Header */}
                 <div className="px-5 py-4 border-b border-white/5 bg-white/[0.01]">
                   <p className="text-xs font-medium text-gray-400 truncate">{userEmail}</p>

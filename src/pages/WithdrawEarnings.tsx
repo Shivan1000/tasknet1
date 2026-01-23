@@ -294,41 +294,41 @@ const WithdrawEarnings = () => {
           <p className="text-gray-500 text-sm">Manage your payouts and withdrawal history.</p>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-          <div className="lg:col-span-2 bg-blue-600 rounded-3xl p-8 text-white flex flex-col justify-between relative overflow-hidden group">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 mb-12">
+          <div className="lg:col-span-2 bg-blue-600 rounded-3xl p-6 sm:p-8 text-white flex flex-col justify-between relative overflow-hidden group">
             <div className="relative z-10">
-              <div className="flex items-center justify-between mb-8">
-                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
-                  <Wallet size={24} />
+              <div className="flex items-center justify-between mb-6 sm:mb-8">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                  <Wallet size={20} className="sm:size-6" />
                 </div>
                 <button 
                   onClick={() => showAlert('Transaction history is already up to date.', 'info')}
-                  className="text-sm font-bold bg-white/10 px-4 py-2 rounded-xl hover:bg-white/20 transition-all"
+                  className="text-xs sm:text-sm font-bold bg-white/10 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl hover:bg-white/20 transition-all"
                 >
-                  Withdraw History
+                  History
                 </button>
               </div>
               <div>
-                <p className="text-blue-100 text-sm font-medium mb-2">Available Balance</p>
-                <p className="text-5xl font-bold mb-6">${balance.toFixed(2)}</p>
+                <p className="text-blue-100 text-xs sm:text-sm font-medium mb-1 sm:mb-2">Available Balance</p>
+                <p className="text-4xl sm:text-5xl font-bold mb-6 sm:mb-8">${balance.toFixed(2)}</p>
               </div>
 
               {payoutMethods.length > 0 && (
                 <div className="mb-6 space-y-3">
-                  <p className="text-blue-100 text-xs font-bold uppercase tracking-wider">Select Payout Method</p>
+                  <p className="text-blue-100 text-[10px] sm:text-xs font-bold uppercase tracking-wider">Select Payout Method</p>
                   <div className="flex flex-wrap gap-2">
                     {payoutMethods.map((method) => (
                       <button
                         key={method.id}
                         onClick={() => setSelectedWithdrawMethodId(method.id)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${
+                        className={`flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl border transition-all ${
                           selectedWithdrawMethodId === method.id
                             ? 'bg-white text-blue-600 border-white shadow-lg'
                             : 'bg-white/10 text-white border-white/10 hover:bg-white/20'
                         }`}
                       >
-                        <img src={PAYMENT_ICONS[method.type]} alt="" className="w-4 h-4 object-contain" />
-                        <span className="text-xs font-bold">{method.label}</span>
+                        <img src={PAYMENT_ICONS[method.type as keyof typeof PAYMENT_ICONS]} alt="" className="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain" />
+                        <span className="text-[10px] sm:text-xs font-bold">{method.label}</span>
                       </button>
                     ))}
                   </div>
@@ -338,13 +338,13 @@ const WithdrawEarnings = () => {
               <button 
                 onClick={handleWithdraw}
                 disabled={isWithdrawing || balance < 1 || payoutMethods.length === 0}
-                className="w-full sm:w-auto px-8 py-4 bg-white text-blue-600 rounded-2xl font-bold text-sm hover:shadow-xl hover:shadow-blue-900/40 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full sm:w-auto px-6 py-3.5 sm:px-8 sm:py-4 bg-white text-blue-600 rounded-2xl font-bold text-sm hover:shadow-xl hover:shadow-blue-900/40 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isWithdrawing ? 'Processing...' : 'Withdraw Funds'}
                 <ArrowUpRight size={18} />
               </button>
             </div>
-            <div className="absolute bottom-[-20%] right-[-5%] w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+            <div className="absolute bottom-[-20%] right-[-5%] w-48 h-48 sm:w-64 sm:h-64 bg-white/10 rounded-full blur-3xl"></div>
           </div>
 
           <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-6 md:p-8">

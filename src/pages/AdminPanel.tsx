@@ -532,40 +532,40 @@ const AdminPanel = () => {
       </div>
 
       <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <header className="mb-10">
+        <header className="mb-8 sm:mb-10">
           <div className="flex items-center gap-3 mb-2">
             <div className="px-3 py-1 bg-blue-600/10 text-blue-500 rounded-full text-[10px] font-bold uppercase tracking-widest border border-blue-500/20">
               Admin Control
             </div>
           </div>
-          <h1 className="text-3xl font-black tracking-tighter uppercase italic">
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase italic">
             {activeAdminTab === 'Tasks' ? 'Task Management' : 
              activeAdminTab === 'Users' ? 'User Management' : 
              activeAdminTab === 'Withdrawals' ? 'Payout Records' : 'Submission Verifications'}
           </h1>
-          <p className="text-gray-500 text-sm mt-1">
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">
             {activeAdminTab === 'Tasks' ? 'Distribute new tasks to the network.' : 
              activeAdminTab === 'Users' ? 'View all registered users and their details.' : 
              activeAdminTab === 'Withdrawals' ? 'View historical payout data and completed transactions.' : 'Review and approve user submissions.'}
           </p>
         </header>
 
-        <div className="flex flex-wrap bg-white/[0.03] border border-white/5 p-1 rounded-2xl mb-12 w-fit gap-1">
+        <div className="flex flex-wrap bg-white/[0.03] border border-white/5 p-1 rounded-2xl mb-8 sm:mb-12 w-full sm:w-fit gap-1">
           <button 
             onClick={() => setActiveAdminTab('Tasks')}
-            className={`px-4 md:px-8 py-2.5 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
+            className={`flex-1 sm:flex-none px-4 sm:px-8 py-2.5 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
               activeAdminTab === 'Tasks' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-gray-500 hover:text-white'
             }`}
           >
-            Create Task
+            Create
           </button>
           <button 
             onClick={() => setActiveAdminTab('Verification')}
-            className={`px-4 md:px-8 py-2.5 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all relative ${
+            className={`flex-1 sm:flex-none px-4 sm:px-8 py-2.5 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all relative ${
               activeAdminTab === 'Verification' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-gray-500 hover:text-white'
             }`}
           >
-            Verifications
+            Verify
             {tasks.filter(t => t.status === 'submitted').length > 0 && (
               <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[8px] flex items-center justify-center animate-pulse">
                 {tasks.filter(t => t.status === 'submitted').length}
@@ -574,28 +574,27 @@ const AdminPanel = () => {
           </button>
           <button 
             onClick={() => setActiveAdminTab('Submissions')}
-            className={`px-4 md:px-8 py-2.5 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
+            className={`flex-1 sm:flex-none px-4 sm:px-8 py-2.5 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
               activeAdminTab === 'Submissions' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-gray-500 hover:text-white'
             }`}
           >
-            Submissions
+            History
           </button>
           <button 
             onClick={() => setActiveAdminTab('Users')}
-            className={`px-4 md:px-8 py-2.5 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
+            className={`flex-1 sm:flex-none px-4 sm:px-8 py-2.5 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
               activeAdminTab === 'Users' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-gray-500 hover:text-white'
             }`}
           >
             Users
-            <span className="ml-1.5 text-[9px] opacity-70">({profiles.length})</span>
           </button>
           <button 
             onClick={() => setActiveAdminTab('Withdrawals')}
-            className={`px-4 md:px-8 py-2.5 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
+            className={`flex-1 sm:flex-none px-4 sm:px-8 py-2.5 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
               activeAdminTab === 'Withdrawals' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-gray-500 hover:text-white'
             }`}
           >
-            Withdrawals
+            Paid
           </button>
         </div>
 
@@ -996,7 +995,7 @@ const AdminPanel = () => {
         <h2 className="text-xl font-bold mb-8 italic uppercase tracking-tight">Pending Submissions</h2>
         {tasks.filter(t => t.status === 'submitted').length > 0 ? (
           tasks.filter(t => t.status === 'submitted').map(task => (
-            <div key={task.id} className="bg-white/[0.02] border border-white/5 rounded-[32px] p-8 hover:border-blue-500/20 transition-all">
+            <div key={task.id} className="bg-white/[0.02] border border-white/5 rounded-[32px] p-5 sm:p-8 hover:border-blue-500/20 transition-all">
               <div className="flex flex-col md:flex-row justify-between gap-6">
                 <div className="flex-1 space-y-4">
                   <div className="flex items-center gap-3">
@@ -1090,7 +1089,7 @@ const AdminPanel = () => {
               const pendingWithdrawals = withdrawalRequests.filter(r => r.user_email === profile.email && r.status === 'pending');
                   
               return (
-                <div key={profile.email} className={`bg-white/[0.02] border rounded-[28px] p-5 md:p-6 transition-all ${pendingWithdrawals.length > 0 ? 'border-red-500/30' : 'border-white/5 hover:border-blue-500/20'}`}>
+                <div key={profile.email} className={`bg-white/[0.02] border rounded-[28px] p-4 sm:p-6 transition-all ${pendingWithdrawals.length > 0 ? 'border-red-500/30' : 'border-white/5 hover:border-blue-500/20'}`}>
                   {/* User Header */}
                   <div className="flex items-start gap-4 mb-4">
                     <div className="relative">
