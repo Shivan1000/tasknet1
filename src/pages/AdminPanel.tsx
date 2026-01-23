@@ -192,6 +192,31 @@ const AdminPanel = () => {
     }
   };
 
+  const sendDiscordNotification = async () => {
+    const token = import.meta.env.VITE_DISCORD_TOKEN;
+    const channelId = import.meta.env.VITE_DISCORD_CHANNEL_ID;
+    
+    if (!token || !channelId) {
+      console.log('Discord credentials missing in environment variables');
+      return;
+    }
+
+    try {
+      await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bot ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: 'A new task is available in the server'
+        }),
+      });
+    } catch (err) {
+      console.error('Error sending Discord notification:', err);
+    }
+  };
+
   const fetchProfiles = async () => {
     const { data, error } = await supabase
       .from('profiles')
@@ -241,7 +266,10 @@ const AdminPanel = () => {
         .insert([taskData]);
       
       if (error) showAlert('Error posting task: ' + error.message, 'error');
-      else showAlert('Task Posted Successfully!', 'success');
+      else {
+        showAlert('Task Posted Successfully!', 'success');
+        sendDiscordNotification();
+      }
     }
 
     resetForm();

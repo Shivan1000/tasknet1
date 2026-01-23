@@ -1,19 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutGrid, Home, ListTodo, WalletCards, Bell, ChevronDown, Menu, X, LogOut, Settings, User, UserPlus, CheckCircle2, Wallet } from 'lucide-react';
+import { LayoutGrid, Home, ListTodo, WalletCards, Bell, Menu, X, LogOut, Settings, Wallet } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const Navbar = () => {
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [profileData, setProfileData] = useState<{server_username: string, reddit_username: string, balance: number} | null>(null);
   const [redditKarma, setRedditKarma] = useState<number | null>(null);
   const [redditStatus, setRedditStatus] = useState<'active' | 'suspended' | 'banned' | 'not_found' | null>(null);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
   const [showAlertsModal, setShowAlertsModal] = useState(false);
   const [alerts, setAlerts] = useState<any[]>([]);
-  const profileRef = useRef<HTMLDivElement>(null);
   
   const userEmail = localStorage.getItem('user_email') || '';
 
@@ -47,9 +45,6 @@ const Navbar = () => {
     }
 
     const handleClickOutside = (event: MouseEvent) => {
-      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
-        setIsProfileOpen(false);
-      }
       if (showAlertsModal && event.target instanceof Element && !event.target.closest('.alerts-modal')) {
         setShowAlertsModal(false);
       }
@@ -265,7 +260,7 @@ const Navbar = () => {
 
           {/* Alerts Modal */}
           {showAlertsModal && (
-            <div className="fixed top-20 right-4 z-[100] w-80 alerts-modal bg-[#080808] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="fixed top-20 right-4 left-4 sm:left-auto sm:w-80 z-[100] alerts-modal bg-[#080808] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
               <div className="px-5 py-4 border-b border-white/5 bg-white/[0.01] flex items-center justify-between">
                 <h3 className="font-bold text-white">Notifications</h3>
                 <button 
@@ -306,94 +301,18 @@ const Navbar = () => {
             <Settings size={20} />
           </button>
           
-          <div className="relative" ref={profileRef}>
-            <div 
-              onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-full border border-white/5 bg-white/[0.03] hover:bg-white/[0.06] transition-all cursor-pointer group"
-            >
-              <div className="flex items-center gap-3 pl-2">
-                <span className="hidden sm:block text-sm font-bold text-white group-hover:text-blue-400 transition-colors max-w-[100px] truncate">
-                  {displayName}
-                </span>
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-xs font-black text-white shadow-[0_0_15px_rgba(37,99,235,0.3)] group-hover:scale-105 transition-transform uppercase">
-                  {displayName[0]}
-                </div>
-              </div>
-              <div className="p-1">
-                <ChevronDown size={14} className={`text-gray-500 transition-all duration-300 ${isProfileOpen ? 'rotate-180 text-blue-500' : ''}`} />
+          <div 
+            onClick={() => navigate('/account')}
+            className="flex items-center gap-3 px-2 py-1.5 rounded-full border border-white/5 bg-white/[0.03] hover:bg-white/[0.06] transition-all cursor-pointer group"
+          >
+            <div className="flex items-center gap-3 pl-2">
+              <span className="hidden sm:block text-sm font-bold text-white group-hover:text-blue-400 transition-colors max-w-[100px] truncate">
+                {displayName}
+              </span>
+              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-xs font-black text-white shadow-[0_0_15px_rgba(37,99,235,0.3)] group-hover:scale-105 transition-transform uppercase">
+                {displayName[0]}
               </div>
             </div>
-
-            {isProfileOpen && (
-              <div className="absolute top-full right-0 mt-3 w-[85vw] sm:w-72 bg-[#080808] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
-                {/* User Email Header */}
-                <div className="px-5 py-4 border-b border-white/5 bg-white/[0.01]">
-                  <p className="text-xs font-medium text-gray-400 truncate">{userEmail}</p>
-                </div>
-
-                {/* Reddit Accounts Section */}
-                <div className="p-2">
-                  <div className="px-3 py-2 flex items-center gap-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">
-                    <div className="w-4 h-4 bg-[#FF4500] rounded-full flex items-center justify-center">
-                      <svg viewBox="0 0 24 24" className="w-2.5 h-2.5 fill-white" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.051l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.945 0 1.712.767 1.712 1.712 0 .593-.306 1.11-.764 1.398.032.183.051.369.051.563 0 2.315-2.72 4.192-6.075 4.192-3.354 0-6.074-1.877-6.074-4.192 0-.194.02-.38.051-.563a1.712 1.712 0 0 1-1.114-2.622c.307-.31.73-.491 1.207-.491.478 0 .901.182 1.207.491 1.194-.856 2.85-1.419 4.674-1.488l.82-3.818a.312.312 0 0 1 .37-.243l2.672.567c.058-.051.126-.093.197-.122zm-6.11 7.115c-.631 0-1.145.513-1.145 1.145s.514 1.145 1.145 1.145c.632 0 1.145-.513 1.145-1.145s-.513-1.145-1.145-1.145zm4.22 0c-.632 0-1.145.513-1.145 1.145s.513 1.145 1.145 1.145c.631 0 1.145-.513 1.145-1.145s-.514-1.145-1.145-1.145zm-4.22 3.183c-.11 0-.213.044-.29.121-.423.422-1.328.462-1.62.462a.41.31 0 1 0 0 .82c.728 0 1.938-.11 2.546-.718a.41.41 0 0 0-.636-.585zm4.22 0c-.11 0-.213.044-.29.121-.423.422-1.328.462-1.62.462a.41.31 0 1 0 0 .82c.728 0 1.938-.11 2.546-.718a.41.41 0 0 0-.636-.585z"/>
-                      </svg>
-                    </div>
-                    Reddit Accounts
-                  </div>
-
-                  {profileData?.reddit_username ? (
-                    <div className="mx-2 mb-2 p-3 bg-white/[0.03] border border-white/5 rounded-xl flex items-center justify-between group/reddit hover:border-blue-500/30 transition-all">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-[#FF4500]/10 rounded-full flex items-center justify-center">
-                          <svg viewBox="0 0 24 24" className="w-4 h-4 fill-[#FF4500]" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.051l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.945 0 1.712.767 1.712 1.712 0 .593-.306 1.11-.764 1.398.032.183.051.369.051.563 0 2.315-2.72 4.192-6.075 4.192-3.354 0-6.074-1.877-6.074-4.192 0-.194.02-.38.051-.563a1.712 1.712 0 0 1-1.114-2.622c.307-.31.73-.491 1.207-.491.478 0 .901.182 1.207.491 1.194-.856 2.85-1.419 4.674-1.488l.82-3.818a.312.312 0 0 1 .37-.243l2.672.567c.058-.051.126-.093.197-.122zm-6.11 7.115c-.631 0-1.145.513-1.145 1.145s.514 1.145 1.145 1.145c.632 0 1.145-.513 1.145-1.145s-.513-1.145-1.145-1.145zm4.22 0c-.632 0-1.145.513-1.145 1.145s.513 1.145 1.145 1.145c.631 0 1.145-.513 1.145-1.145s-.514-1.145-1.145-1.145zm-4.22 3.183c-.11 0-.213.044-.29.121-.423.422-1.328.462-1.62.462a.41.31 0 1 0 0 .82c.728 0 1.938-.11 2.546-.718a.41.41 0 0 0-.636-.585zm4.22 0c-.11 0-.213.044-.29.121-.423.422-1.328.462-1.62.462a.41.31 0 1 0 0 .82c.728 0 1.938-.11 2.546-.718a.41.41 0 0 0-.636-.585z"/>
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="text-[13px] font-bold text-white leading-none mb-1">u/{redditName}</p>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[11px] font-bold text-gray-500">{redditKarma !== null ? `${redditKarma.toLocaleString()} karma` : '---'}</span>
-                            <CheckCircle2 size={11} className="text-emerald-500" />
-                          </div>
-                        </div>
-                      </div>
-                      <span className="px-3 py-1 bg-[#FF4500] text-black text-[10px] font-black uppercase rounded-lg border border-[#FF4500]">
-                        Active
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="px-3 py-4 text-center text-[10px] text-gray-600 font-bold uppercase tracking-widest italic">
-                      No Accounts Linked
-                    </div>
-                  )}
-
-                  <div className="space-y-0.5 border-t border-white/5 pt-1">
-                    <button 
-                      onClick={() => { navigate('/account'); setIsProfileOpen(false); }}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
-                    >
-                      <UserPlus size={18} className="text-gray-400" /> Add Reddit Account
-                    </button>
-                    <button 
-                      onClick={() => { navigate('/account'); setIsProfileOpen(false); }}
-                      className="w-full flex items-center gap-4 px-4 py-3 text-xs font-bold text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
-                    >
-                      <Settings size={18} className="text-gray-400" /> Profile Settings
-                    </button>
-                  </div>
-
-                  <div className="mt-1 border-t border-white/5 pt-1">
-                    <button 
-                      onClick={handleLogout}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-red-500 hover:bg-red-500/10 rounded-xl transition-all group/logout"
-                    >
-                      <LogOut size={18} className="group-hover:-translate-x-0.5 transition-transform" /> Sign Out
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           <button 
