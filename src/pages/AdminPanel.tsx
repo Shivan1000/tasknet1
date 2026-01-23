@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Layout from '../components/Layout';
-import { Send, Plus, Trash2, Globe, Tag, DollarSign, Clock, Edit2, Eye, EyeOff, User, ChevronDown, Check, X, Search, AlertCircle, Shield, Lock, MessageSquare, CheckCircle2, Users, Wallet, CreditCard, ExternalLink, Banknote } from 'lucide-react';
+import { Send, Plus, Trash2, Globe, Tag, DollarSign, Clock, Edit2, Eye, EyeOff, User, ChevronDown, Check, X, Search, AlertCircle, Shield, Lock, MessageSquare, CheckCircle2, Users, Wallet, CreditCard, ExternalLink } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Task {
@@ -19,6 +19,20 @@ interface Task {
   claimed_by: string;
   submission_data: any;
   is_hidden: boolean;
+  created_at: string;
+}
+
+interface WithdrawalRequest {
+  id: string;
+  transaction_id: string;
+  user_email: string;
+  amount: number;
+  payout_method: {
+    type: string;
+    value: string;
+    label: string;
+  };
+  status: 'pending' | 'completed' | 'rejected';
   created_at: string;
 }
 
@@ -48,26 +62,12 @@ interface CustomAlert {
   type: 'success' | 'error' | 'info';
 }
 
-interface Withdrawal {
-  id: string;
-  transaction_id: string;
-  user_email: string;
-  amount: number;
-  payout_method: {
-    id: string;
-    type: 'binance' | 'usdt' | 'upi';
-    value: string;
-    label: string;
-  };
-  status: 'pending' | 'approved' | 'rejected';
-  created_at: string;
-}
-
 const AdminPanel = () => {
   const [passcode, setPasscode] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalRequest[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [activeAdminTab, setActiveAdminTab] = useState('Tasks');
   
@@ -83,9 +83,13 @@ const AdminPanel = () => {
   const [rejectReason, setRejectReason] = useState('');
   const [isRejecting, setIsRejecting] = useState(false);
   
+  // Withdrawal Confirmation Modal State
+  const [isWithdrawConfirmModalOpen, setIsWithdrawConfirmModalOpen] = useState(false);
+  const [withdrawTargetRequest, setWithdrawTargetRequest] = useState<WithdrawalRequest | null>(null);
+  const [isProcessingWithdrawal, setIsProcessingWithdrawal] = useState(false);
+  
   // Users Tab State
   const [expandedUserEmail, setExpandedUserEmail] = useState<string | null>(null);
-  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   
   const [taskName, setTaskName] = useState('');
   const [tier, setTier] = useState('Tier 1');
@@ -128,17 +132,30 @@ const AdminPanel = () => {
     }
   };
 
+  const fetchWithdrawalRequests = async () => {
+    const { data, error } = await supabase
+      .from('withdrawal_requests')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching withdrawal requests:', error);
+    } else {
+      setWithdrawalRequests(data || []);
+    }
+  };
+
   useEffect(() => {
     if (isAuthenticated) {
       fetchTasks();
       fetchProfiles();
-      fetchWithdrawals();
+      fetchWithdrawalRequests();
       
       // Auto-refresh every 10 seconds
       const refreshInterval = setInterval(() => {
         fetchTasks();
         fetchProfiles();
-        fetchWithdrawals();
+        fetchWithdrawalRequests();
       }, 10000);
       
       return () => clearInterval(refreshInterval);
@@ -184,68 +201,6 @@ const AdminPanel = () => {
       console.error('Error fetching profiles:', error);
     } else {
       setProfiles(data || []);
-    }
-  };
-
-  const fetchWithdrawals = async () => {
-    const { data, error } = await supabase
-      .from('withdrawals')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (error) {
-      console.error('Error fetching withdrawals:', error);
-    } else {
-      setWithdrawals(data || []);
-    }
-  };
-
-  const handleApproveWithdrawal = async (withdrawal: Withdrawal) => {
-    const { error } = await supabase
-      .from('withdrawals')
-      .update({ status: 'approved' })
-      .eq('id', withdrawal.id);
-
-    if (error) {
-      showAlert('Error approving withdrawal: ' + error.message, 'error');
-    } else {
-      showAlert(`Withdrawal ${withdrawal.transaction_id} approved!`, 'success');
-      fetchWithdrawals();
-    }
-  };
-
-  const handleRejectWithdrawal = async (withdrawal: Withdrawal) => {
-    // Refund the amount back to user
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('balance')
-      .eq('email', withdrawal.user_email)
-      .single();
-
-    const currentBalance = parseFloat(profile?.balance || '0');
-    const newBalance = currentBalance + withdrawal.amount;
-
-    const { error: balanceError } = await supabase
-      .from('profiles')
-      .update({ balance: newBalance })
-      .eq('email', withdrawal.user_email);
-
-    if (balanceError) {
-      showAlert('Error refunding balance: ' + balanceError.message, 'error');
-      return;
-    }
-
-    const { error } = await supabase
-      .from('withdrawals')
-      .update({ status: 'rejected' })
-      .eq('id', withdrawal.id);
-
-    if (error) {
-      showAlert('Error rejecting withdrawal: ' + error.message, 'error');
-    } else {
-      showAlert(`Withdrawal ${withdrawal.transaction_id} rejected and refunded!`, 'success');
-      fetchWithdrawals();
-      fetchProfiles();
     }
   };
 
@@ -434,6 +389,31 @@ const AdminPanel = () => {
     fetchTasks();
   };
 
+  const handleOpenWithdrawConfirm = (request: WithdrawalRequest) => {
+    setWithdrawTargetRequest(request);
+    setIsWithdrawConfirmModalOpen(true);
+  };
+
+  const confirmWithdrawal = async () => {
+    if (!withdrawTargetRequest) return;
+    
+    setIsProcessingWithdrawal(true);
+    const { error } = await supabase
+      .from('withdrawal_requests')
+      .update({ status: 'completed' })
+      .eq('id', withdrawTargetRequest.id);
+
+    if (error) {
+      showAlert('Error updating withdrawal: ' + error.message, 'error');
+    } else {
+      showAlert('Withdrawal marked as completed!', 'success');
+      fetchWithdrawalRequests();
+      setIsWithdrawConfirmModalOpen(false);
+      setWithdrawTargetRequest(null);
+    }
+    setIsProcessingWithdrawal(false);
+  };
+
   const submitAdminAlert = async () => {
     if (!alertMessage.trim()) return;
     
@@ -560,11 +540,13 @@ const AdminPanel = () => {
           </div>
           <h1 className="text-3xl font-black tracking-tighter uppercase italic">
             {activeAdminTab === 'Tasks' ? 'Task Management' : 
-             activeAdminTab === 'Users' ? 'User Management' : 'Submission Verifications'}
+             activeAdminTab === 'Users' ? 'User Management' : 
+             activeAdminTab === 'Withdrawals' ? 'Payout Records' : 'Submission Verifications'}
           </h1>
           <p className="text-gray-500 text-sm mt-1">
             {activeAdminTab === 'Tasks' ? 'Distribute new tasks to the network.' : 
-             activeAdminTab === 'Users' ? 'View all registered users and their details.' : 'Review and approve user submissions.'}
+             activeAdminTab === 'Users' ? 'View all registered users and their details.' : 
+             activeAdminTab === 'Withdrawals' ? 'View historical payout data and completed transactions.' : 'Review and approve user submissions.'}
           </p>
         </header>
 
@@ -606,6 +588,14 @@ const AdminPanel = () => {
           >
             Users
             <span className="ml-1.5 text-[9px] opacity-70">({profiles.length})</span>
+          </button>
+          <button 
+            onClick={() => setActiveAdminTab('Withdrawals')}
+            className={`px-4 md:px-8 py-2.5 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
+              activeAdminTab === 'Withdrawals' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-gray-500 hover:text-white'
+            }`}
+          >
+            Withdrawals
           </button>
         </div>
 
@@ -1084,85 +1074,6 @@ const AdminPanel = () => {
       </section>
     ) : activeAdminTab === 'Users' ? (
       <section className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-        {/* Pending Withdrawals Section */}
-        {withdrawals.filter(w => w.status === 'pending').length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold italic uppercase tracking-tight flex items-center gap-2">
-                <Banknote size={20} className="text-amber-500" />
-                Pending Withdrawals
-              </h2>
-              <span className="px-3 py-1 bg-amber-500/10 text-amber-500 text-[10px] font-black rounded-full animate-pulse">
-                {withdrawals.filter(w => w.status === 'pending').length} PENDING
-              </span>
-            </div>
-            <div className="space-y-3">
-              {withdrawals.filter(w => w.status === 'pending').map((withdrawal) => {
-                const userProfile = profiles.find(p => p.email === withdrawal.user_email);
-                return (
-                  <div key={withdrawal.id} className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 md:p-5">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center">
-                          <Banknote size={18} className="text-amber-500" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] font-mono text-amber-500">{withdrawal.transaction_id}</span>
-                            <span className="text-[8px] font-black bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded uppercase">PENDING</span>
-                          </div>
-                          <p className="text-sm font-bold text-white">{userProfile?.server_username || withdrawal.user_email.split('@')[0]}</p>
-                          <p className="text-[10px] text-gray-500">{withdrawal.user_email}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className="text-[9px] font-black text-gray-600 uppercase mb-0.5">Amount</p>
-                          <p className="text-lg font-black text-emerald-500">${withdrawal.amount.toFixed(2)}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[9px] font-black text-gray-600 uppercase mb-0.5">Method</p>
-                          <div className="flex items-center gap-1.5">
-                            <img 
-                              src={PAYMENT_ICONS[withdrawal.payout_method?.type] || ''} 
-                              alt={withdrawal.payout_method?.label || 'Unknown'}
-                              className="w-4 h-4 object-contain"
-                            />
-                            <span className="text-xs text-gray-300">{withdrawal.payout_method?.label}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleApproveWithdrawal(withdrawal)}
-                          className="px-4 py-2 bg-emerald-600 text-white rounded-xl font-bold text-xs hover:bg-emerald-700 transition-all flex items-center gap-1"
-                        >
-                          <Check size={14} />
-                          Approve
-                        </button>
-                        <button
-                          onClick={() => handleRejectWithdrawal(withdrawal)}
-                          className="px-4 py-2 bg-red-600/20 text-red-500 border border-red-500/30 rounded-xl font-bold text-xs hover:bg-red-600 hover:text-white transition-all flex items-center gap-1"
-                        >
-                          <X size={14} />
-                          Reject
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-500">
-                      <span>Payout to: <span className="text-gray-300 font-mono">{withdrawal.payout_method?.value}</span></span>
-                      <span>{new Date(withdrawal.created_at).toLocaleString()}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-xl font-bold italic uppercase tracking-tight">Registered Users</h2>
           <div className="px-4 py-2 bg-white/[0.03] border border-white/5 rounded-2xl">
@@ -1176,16 +1087,27 @@ const AdminPanel = () => {
             {profiles.map((profile) => {
               const userTasks = tasks.filter(t => t.claimed_by === profile.email && (t.status === 'verified' || t.status === 'submitted'));
               const isExpanded = expandedUserEmail === profile.email;
+              const pendingWithdrawals = withdrawalRequests.filter(r => r.user_email === profile.email && r.status === 'pending');
                   
               return (
-                <div key={profile.email} className="bg-white/[0.02] border border-white/5 rounded-[28px] p-5 md:p-6 hover:border-blue-500/20 transition-all">
+                <div key={profile.email} className={`bg-white/[0.02] border rounded-[28px] p-5 md:p-6 transition-all ${pendingWithdrawals.length > 0 ? 'border-red-500/30' : 'border-white/5 hover:border-blue-500/20'}`}>
                   {/* User Header */}
                   <div className="flex items-start gap-4 mb-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center text-white font-black text-lg flex-shrink-0">
-                      {(profile.server_username || profile.email)[0].toUpperCase()}
+                    <div className="relative">
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center text-white font-black text-lg flex-shrink-0">
+                        {(profile.server_username || profile.email)[0].toUpperCase()}
+                      </div>
+                      {pendingWithdrawals.length > 0 && (
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 border-2 border-[#0a0a0a] rounded-full animate-pulse shadow-lg shadow-red-500/40"></div>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-white text-sm truncate">{profile.server_username || profile.email.split('@')[0]}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-white text-sm truncate">{profile.server_username || profile.email.split('@')[0]}</h3>
+                        {pendingWithdrawals.length > 0 && (
+                          <span className="text-[8px] font-black bg-red-500/10 text-red-500 px-1.5 py-0.5 rounded uppercase tracking-tighter">Withdrawal Req</span>
+                        )}
+                      </div>
                       <p className="text-[11px] text-gray-500 truncate">{profile.email}</p>
                       {profile.reddit_username && (
                         <a 
@@ -1201,13 +1123,53 @@ const AdminPanel = () => {
                     </div>
                   </div>
     
-                  {/* Balance */}
-                  <div className="flex items-center justify-between p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl mb-4">
-                    <div className="flex items-center gap-2">
-                      <Wallet size={14} className="text-emerald-500" />
-                      <span className="text-[10px] font-bold text-gray-400 uppercase">Balance</span>
+                  {/* Balance & Pending Requests */}
+                  <div className="grid grid-cols-1 gap-2 mb-4">
+                    <div className="flex items-center justify-between p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
+                      <div className="flex items-center gap-2">
+                        <Wallet size={14} className="text-emerald-500" />
+                        <span className="text-[10px] font-bold text-gray-400 uppercase">Current Balance</span>
+                      </div>
+                      <span className="text-sm font-black text-emerald-500">${(profile.balance || 0).toFixed(2)}</span>
                     </div>
-                    <span className="text-sm font-black text-emerald-500">${(profile.balance || 0).toFixed(2)}</span>
+
+                    {pendingWithdrawals.length > 0 && (
+                      <div className="space-y-2">
+                        {pendingWithdrawals.map(req => (
+                          <div key={req.id} className="p-3 bg-red-500/5 border border-red-500/10 rounded-xl">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <DollarSign size={14} className="text-red-500" />
+                                <div className="flex flex-col">
+                                  <span className="text-[10px] font-black text-red-500 uppercase">Withdrawal Request</span>
+                                  <span className="text-[9px] font-mono text-gray-500">{req.transaction_id}</span>
+                                </div>
+                              </div>
+                              <span className="text-sm font-black text-red-500">${req.amount.toFixed(2)}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3 px-2 py-1.5 bg-white/[0.03] rounded-lg">
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <img 
+                                  src={PAYMENT_ICONS[req.payout_method.type]} 
+                                  alt={req.payout_method.label}
+                                  className="w-3.5 h-3.5 object-contain"
+                                />
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-[9px] font-black text-gray-400 uppercase leading-none mb-0.5">{req.payout_method.label}</span>
+                                  <span className="text-[10px] font-bold text-gray-200 truncate">{req.payout_method.value}</span>
+                                </div>
+                              </div>
+                              <button 
+                                onClick={() => handleOpenWithdrawConfirm(req)}
+                                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-black rounded-lg transition-all shadow-lg shadow-emerald-600/10 whitespace-nowrap"
+                              >
+                                PAID
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
     
                   {/* Payout Methods */}
@@ -1295,6 +1257,67 @@ const AdminPanel = () => {
             <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">No users registered yet.</p>
           </div>
         )}
+      </section>
+    ) : activeAdminTab === 'Withdrawals' ? (
+      <section className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-xl font-bold italic uppercase tracking-tight">Completed Withdrawals</h2>
+          <div className="px-4 py-2 bg-white/[0.03] border border-white/5 rounded-2xl">
+            <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Total Paid: </span>
+            <span className="text-sm font-black text-white">{withdrawalRequests.filter(r => r.status === 'completed').length}</span>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {withdrawalRequests.filter(r => r.status === 'completed').length > 0 ? (
+            withdrawalRequests.filter(r => r.status === 'completed').map(req => {
+              const paidDate = new Date(req.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+              const userProfile = profiles.find(p => p.email === req.user_email);
+
+              return (
+                <div key={req.id} className="bg-white/[0.02] border border-white/5 p-5 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-4 group hover:border-emerald-500/20 transition-all">
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/20 text-emerald-500">
+                      <Check size={18} strokeWidth={3} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-[10px] font-mono text-gray-500">{req.transaction_id}</span>
+                        <h4 className="text-sm font-bold text-white">{userProfile?.server_username || req.user_email.split('@')[0]}</h4>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-[11px] font-bold text-gray-400">
+                          {req.user_email}
+                        </span>
+                        <span className="text-gray-700 text-[10px]">•</span>
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tight">Paid on {paidDate}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-6">
+                    <div className="text-right">
+                      <span className="block text-[9px] font-black text-gray-600 uppercase tracking-widest mb-0.5">Amount Paid</span>
+                      <span className="text-sm font-black text-emerald-500">${req.amount.toFixed(2)}</span>
+                    </div>
+                    <div className="text-right min-w-[120px]">
+                      <span className="block text-[9px] font-black text-gray-600 uppercase tracking-widest mb-0.5">Method</span>
+                      <div className="flex items-center justify-end gap-2">
+                        <img src={PAYMENT_ICONS[req.payout_method.type]} alt="" className="w-3.5 h-3.5 object-contain" />
+                        <span className="text-[10px] font-bold text-gray-300">{req.payout_method.label}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="py-20 text-center bg-white/[0.01] border border-dashed border-white/10 rounded-[32px]">
+              <Wallet size={48} className="mx-auto text-gray-700 mb-4" />
+              <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">No completed withdrawals yet.</p>
+            </div>
+          )}
+        </div>
       </section>
     ) : (
       <section className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">

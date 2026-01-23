@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { Wallet, ArrowUpRight, History, CreditCard, Inbox, Check, X, AlertCircle, Plus, Edit2, Trash2, Clock } from 'lucide-react';
+import { Wallet, ArrowUpRight, History, CreditCard, Inbox, Check, X, AlertCircle, Plus, Edit2, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface CustomAlert {
@@ -16,23 +16,13 @@ interface PayoutMethod {
   label: string;
 }
 
-interface Withdrawal {
-  id: string;
-  transaction_id: string;
-  user_email: string;
-  amount: number;
-  payout_method: PayoutMethod;
-  status: 'pending' | 'approved' | 'rejected';
-  created_at: string;
-}
-
-const PAYMENT_ICONS: Record<string, string> = {
+const PAYMENT_ICONS = {
   binance: 'https://cryptologos.cc/logos/binance-coin-bnb-logo.png',
   usdt: 'https://cryptologos.cc/logos/tether-usdt-logo.png',
   upi: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/UPI-Logo-vector.svg/1200px-UPI-Logo-vector.svg.png'
 };
 
-const PAYMENT_LABELS: Record<string, string> = {
+const PAYMENT_LABELS = {
   binance: 'Binance ID',
   usdt: 'USDT Wallet',
   upi: 'UPI ID'
@@ -53,12 +43,9 @@ const WithdrawEarnings = () => {
   const [editingMethod, setEditingMethod] = useState<PayoutMethod | null>(null);
   const [deletingMethod, setDeletingMethod] = useState<PayoutMethod | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-
-  // Withdrawal State
-  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
-  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
-  const [selectedPayoutMethod, setSelectedPayoutMethod] = useState<PayoutMethod | null>(null);
-  const [isSubmittingWithdrawal, setIsSubmittingWithdrawal] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [selectedWithdrawMethodId, setSelectedWithdrawMethodId] = useState<string | null>(null);
+  const [withdrawalHistory, setWithdrawalHistory] = useState<any[]>([]);
 
   // Custom Alert State
   const [activeAlert, setActiveAlert] = useState<CustomAlert>({ show: false, message: '', type: 'info' });
@@ -72,9 +59,19 @@ const WithdrawEarnings = () => {
     if (userEmail) {
       fetchBalance();
       fetchPayoutMethods();
-      fetchWithdrawals();
+      fetchWithdrawalHistory();
     }
   }, [userEmail]);
+
+  const fetchWithdrawalHistory = async () => {
+    const { data } = await supabase
+      .from('withdrawal_requests')
+      .select('*')
+      .eq('user_email', userEmail)
+      .order('created_at', { ascending: false });
+    
+    if (data) setWithdrawalHistory(data);
+  };
 
   const fetchBalance = async () => {
     setLoading(true);
@@ -96,71 +93,66 @@ const WithdrawEarnings = () => {
       .single();
     
     if (data?.payout_methods) {
-      setPayoutMethods(data.payout_methods);
+      const methods = data.payout_methods;
+      setPayoutMethods(methods);
+      if (methods.length > 0) {
+        setSelectedWithdrawMethodId(methods[0].id);
+      }
     }
-  };
-
-  const fetchWithdrawals = async () => {
-    const { data } = await supabase
-      .from('withdrawals')
-      .select('*')
-      .eq('user_email', userEmail)
-      .order('created_at', { ascending: false });
-    
-    if (data) {
-      setWithdrawals(data);
-    }
-  };
-
-  const generateTransactionId = () => {
-    return 'TXN' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
   };
 
   const handleWithdraw = async () => {
-    if (!selectedPayoutMethod) {
+    if (payoutMethods.length === 0) {
+      showAlert('Please add a payout method first.', 'error');
+      return;
+    }
+    
+    if (balance < 1) {
+      showAlert('Minimum withdrawal amount is $1.00', 'error');
+      return;
+    }
+
+    const selectedMethod = payoutMethods.find(m => m.id === selectedWithdrawMethodId);
+    if (!selectedMethod) {
       showAlert('Please select a payout method.', 'error');
       return;
     }
 
-    setIsSubmittingWithdrawal(true);
-    
-    const transactionId = generateTransactionId();
-    
-    // Create withdrawal record
-    const { error: withdrawalError } = await supabase
-      .from('withdrawals')
-      .insert([{
-        transaction_id: transactionId,
-        user_email: userEmail,
-        amount: balance,
-        payout_method: selectedPayoutMethod,
-        status: 'pending'
-      }]);
+    setIsWithdrawing(true);
 
-    if (withdrawalError) {
-      showAlert('Error submitting withdrawal: ' + withdrawalError.message, 'error');
-      setIsSubmittingWithdrawal(false);
-      return;
+    try {
+      // Generate unique transaction ID
+      const transaction_id = `#TXN${Math.floor(100000 + Math.random() * 900000)}`;
+
+      // 1. Create withdrawal request
+      const { error: requestError } = await supabase
+        .from('withdrawal_requests')
+        .insert({
+          transaction_id,
+          user_email: userEmail,
+          amount: balance,
+          payout_method: selectedMethod,
+          status: 'pending'
+        });
+
+      if (requestError) throw requestError;
+
+      // 2. Reset user balance
+      const { error: balanceError } = await supabase
+        .from('profiles')
+        .update({ balance: 0 })
+        .eq('email', userEmail);
+
+      if (balanceError) throw balanceError;
+
+      showAlert('Withdrawal request submitted! Transaction ID: ' + transaction_id, 'success');
+      setBalance(0);
+      fetchWithdrawalHistory();
+    } catch (err: any) {
+      showAlert('Error processing withdrawal: ' + err.message, 'error');
+    } finally {
+      setIsWithdrawing(false);
     }
-
-    // Deduct balance from user
-    const { error: balanceError } = await supabase
-      .from('profiles')
-      .update({ balance: 0 })
-      .eq('email', userEmail);
-
-    if (balanceError) {
-      showAlert('Error updating balance: ' + balanceError.message, 'error');
-      setIsSubmittingWithdrawal(false);
-      return;
-    }
-
-    setBalance(0);
-    setIsWithdrawModalOpen(false);
-    setSelectedPayoutMethod(null);
-    setIsSubmittingWithdrawal(false);
-    fetchWithdrawals();
-    showAlert(`Withdrawal request submitted! ID: ${transactionId}`, 'success');
   };
 
   const savePayoutMethods = async (methods: PayoutMethod[]) => {
@@ -267,6 +259,8 @@ const WithdrawEarnings = () => {
     }
   };
 
+  const history: any[] = []; // Empty data
+
   return (
     <Layout>
       {/* Custom Alert Toast */}
@@ -316,21 +310,37 @@ const WithdrawEarnings = () => {
               </div>
               <div>
                 <p className="text-blue-100 text-sm font-medium mb-2">Available Balance</p>
-                <p className="text-5xl font-bold mb-8">${balance.toFixed(2)}</p>
+                <p className="text-5xl font-bold mb-6">${balance.toFixed(2)}</p>
               </div>
+
+              {payoutMethods.length > 0 && (
+                <div className="mb-6 space-y-3">
+                  <p className="text-blue-100 text-xs font-bold uppercase tracking-wider">Select Payout Method</p>
+                  <div className="flex flex-wrap gap-2">
+                    {payoutMethods.map((method) => (
+                      <button
+                        key={method.id}
+                        onClick={() => setSelectedWithdrawMethodId(method.id)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${
+                          selectedWithdrawMethodId === method.id
+                            ? 'bg-white text-blue-600 border-white shadow-lg'
+                            : 'bg-white/10 text-white border-white/10 hover:bg-white/20'
+                        }`}
+                      >
+                        <img src={PAYMENT_ICONS[method.type]} alt="" className="w-4 h-4 object-contain" />
+                        <span className="text-xs font-bold">{method.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <button 
-                onClick={() => {
-                  if (payoutMethods.length === 0) {
-                    showAlert('Please add a payout method first.', 'error');
-                  } else if (balance < 1) {
-                    showAlert('Minimum withdrawal amount is $1.00', 'error');
-                  } else {
-                    setIsWithdrawModalOpen(true);
-                  }
-                }}
-                className="w-full sm:w-auto px-8 py-4 bg-white text-blue-600 rounded-2xl font-bold text-sm hover:shadow-xl hover:shadow-blue-900/40 transition-all flex items-center justify-center gap-2"
+                onClick={handleWithdraw}
+                disabled={isWithdrawing || balance < 1 || payoutMethods.length === 0}
+                className="w-full sm:w-auto px-8 py-4 bg-white text-blue-600 rounded-2xl font-bold text-sm hover:shadow-xl hover:shadow-blue-900/40 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Withdraw Funds
+                {isWithdrawing ? 'Processing...' : 'Withdraw Funds'}
                 <ArrowUpRight size={18} />
               </button>
             </div>
@@ -431,36 +441,29 @@ const WithdrawEarnings = () => {
                 </tr>
               </thead>
               <tbody>
-                {withdrawals.length > 0 ? (
-                  withdrawals.map((withdrawal) => (
-                    <tr key={withdrawal.id} className="border-b border-white/5 text-sm hover:bg-white/[0.01] transition-colors">
-                      <td className="py-5 px-8">
-                        <span className="font-mono text-xs text-blue-500">{withdrawal.transaction_id}</span>
-                      </td>
+                {withdrawalHistory.length > 0 ? (
+                  withdrawalHistory.map((item, index) => (
+                    <tr key={index} className="border-b border-white/5 text-sm hover:bg-white/[0.01] transition-colors">
+                      <td className="py-5 px-8 font-mono text-xs text-blue-500">{item.transaction_id}</td>
                       <td className="py-5 px-8 text-gray-400">
-                        {new Date(withdrawal.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {new Date(item.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
                       </td>
                       <td className="py-5 px-8">
                         <div className="flex items-center gap-2">
-                          <img 
-                            src={PAYMENT_ICONS[withdrawal.payout_method?.type] || ''} 
-                            alt={withdrawal.payout_method?.label || 'Unknown'}
-                            className="w-5 h-5 object-contain"
-                          />
-                          <span className="text-gray-300 text-xs">{withdrawal.payout_method?.label || 'Unknown'}</span>
+                          <img src={PAYMENT_ICONS[item.payout_method.type as keyof typeof PAYMENT_ICONS]} alt="" className="w-4 h-4 object-contain" />
+                          <span className="text-xs text-gray-300">{item.payout_method.label}</span>
                         </div>
                       </td>
-                      <td className="py-5 px-8 text-right font-bold text-white">${withdrawal.amount.toFixed(2)}</td>
+                      <td className="py-5 px-8 text-right font-bold text-white">
+                        ${item.amount.toFixed(2)}
+                      </td>
                       <td className="py-5 px-8 text-right">
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase ${
-                          withdrawal.status === 'approved' ? 'bg-emerald-500/10 text-emerald-500' :
-                          withdrawal.status === 'rejected' ? 'bg-red-500/10 text-red-500' :
+                        <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded ${
+                          item.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500' :
+                          item.status === 'rejected' ? 'bg-red-500/10 text-red-500' :
                           'bg-amber-500/10 text-amber-500'
                         }`}>
-                          {withdrawal.status === 'pending' && <Clock size={10} />}
-                          {withdrawal.status === 'approved' && <Check size={10} />}
-                          {withdrawal.status === 'rejected' && <X size={10} />}
-                          {withdrawal.status}
+                          {item.status}
                         </span>
                       </td>
                     </tr>
@@ -688,74 +691,6 @@ const WithdrawEarnings = () => {
                 className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black text-sm hover:bg-red-700 transition-all shadow-lg shadow-red-600/20 disabled:opacity-50"
               >
                 {isSaving ? 'Removing...' : 'Remove'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Withdraw Modal */}
-      {isWithdrawModalOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="w-full max-w-md bg-[#0a0a0a] border border-white/10 rounded-[32px] p-6 md:p-8 shadow-2xl animate-in zoom-in duration-300">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-black tracking-tight uppercase">Withdraw Funds</h2>
-              <button onClick={() => { setIsWithdrawModalOpen(false); setSelectedPayoutMethod(null); }} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="p-4 bg-blue-600/10 border border-blue-500/20 rounded-2xl mb-6 text-center">
-              <p className="text-xs text-blue-400 mb-1">Withdrawal Amount</p>
-              <p className="text-3xl font-black text-white">${balance.toFixed(2)}</p>
-            </div>
-
-            <div className="space-y-3 mb-6">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">Select Payout Method</p>
-              {payoutMethods.map((method) => (
-                <button
-                  key={method.id}
-                  onClick={() => setSelectedPayoutMethod(method)}
-                  className={`w-full p-4 rounded-2xl flex items-center gap-4 transition-all ${
-                    selectedPayoutMethod?.id === method.id 
-                      ? 'bg-blue-600/10 border-2 border-blue-500' 
-                      : 'bg-white/[0.02] border border-white/5 hover:border-white/10'
-                  }`}
-                >
-                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-2">
-                    <img src={PAYMENT_ICONS[method.type]} alt={method.label} className="w-full h-full object-contain" />
-                  </div>
-                  <div className="text-left flex-1">
-                    <p className="text-xs text-gray-400">{method.label}</p>
-                    <p className="text-sm font-bold text-white truncate">{method.value}</p>
-                  </div>
-                  {selectedPayoutMethod?.id === method.id && (
-                    <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
-                      <Check size={14} className="text-white" />
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => { setIsWithdrawModalOpen(false); setSelectedPayoutMethod(null); }}
-                className="flex-1 py-4 bg-white/[0.03] border border-white/10 text-gray-400 rounded-2xl font-bold text-sm hover:text-white hover:bg-white/5 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleWithdraw}
-                disabled={!selectedPayoutMethod || isSubmittingWithdrawal}
-                className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isSubmittingWithdrawal ? 'Processing...' : (
-                  <>
-                    Confirm Withdrawal
-                    <ArrowUpRight size={16} />
-                  </>
-                )}
               </button>
             </div>
           </div>
