@@ -1509,6 +1509,58 @@ const AdminPanel = () => {
             </div>
           </div>
         )}
+
+        {/* Withdrawal Confirmation Modal */}
+        {isWithdrawConfirmModalOpen && withdrawTargetRequest && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="w-full max-w-lg bg-[#0a0a0a] border border-white/10 rounded-[40px] p-8 sm:p-12 shadow-2xl animate-in zoom-in duration-300">
+              <div className="flex flex-col items-center text-center mb-8">
+                <div className="w-16 h-16 bg-emerald-600/10 rounded-2xl flex items-center justify-center mb-6 border border-emerald-500/20">
+                  <DollarSign className="text-emerald-500" size={32} />
+                </div>
+                <h2 className="text-2xl font-black tracking-tight mb-2 uppercase italic">Confirm Payout</h2>
+                <p className="text-gray-500 text-sm">Transaction ID: <span className="text-blue-400 font-mono font-bold">{withdrawTargetRequest.transaction_id}</span></p>
+                <div className="mt-4 p-4 bg-white/[0.02] border border-white/5 rounded-2xl w-full text-left">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-xs font-bold text-gray-500 uppercase">Amount to Pay</span>
+                    <span className="text-xl font-black text-emerald-500">${withdrawTargetRequest.amount.toFixed(2)}</span>
+                  </div>
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest block">Recipient Details</span>
+                    <div className="flex items-center gap-3 p-3 bg-black/40 rounded-xl border border-white/5">
+                      <img src={PAYMENT_ICONS[withdrawTargetRequest.payout_method.type]} alt="" className="w-5 h-5 object-contain" />
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black text-gray-400 uppercase leading-none mb-1">{withdrawTargetRequest.payout_method.label}</p>
+                        <p className="text-xs font-bold text-white truncate">{withdrawTargetRequest.payout_method.value}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <button
+                  onClick={() => { setIsWithdrawConfirmModalOpen(false); setWithdrawTargetRequest(null); }}
+                  className="flex-1 py-4 bg-white/[0.03] border border-white/10 text-gray-400 rounded-2xl font-bold text-sm hover:text-white hover:bg-white/5 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmWithdrawal}
+                  disabled={isProcessingWithdrawal}
+                  className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 group disabled:opacity-50"
+                >
+                  {isProcessingWithdrawal ? 'Processing...' : (
+                    <>
+                      Confirm & Pay
+                      <Check size={18} strokeWidth={3} />
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   );
