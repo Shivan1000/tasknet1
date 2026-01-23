@@ -154,17 +154,47 @@ const AdminPanel = () => {
     }
   };
 
+  const fetchReports = async () => {
+    const { data, error } = await supabase
+      .from('admin_alerts')
+      .select('*')
+      .eq('user_email', 'ADMIN_REPORT')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching reports:', error);
+    } else {
+      setReports(data || []);
+    }
+  };
+
+  const handleDeleteReport = async (id: string) => {
+    const { error } = await supabase
+      .from('admin_alerts')
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      showAlert('Error deleting report', 'error');
+    } else {
+      showAlert('Report deleted', 'success');
+      fetchReports();
+    }
+  };
+
   useEffect(() => {
     if (isAuthenticated) {
       fetchTasks();
       fetchProfiles();
       fetchWithdrawalRequests();
+      fetchReports();
       
       // Auto-refresh every 10 seconds
       const refreshInterval = setInterval(() => {
         fetchTasks();
         fetchProfiles();
         fetchWithdrawalRequests();
+        fetchReports();
       }, 10000);
       
       return () => clearInterval(refreshInterval);
@@ -550,12 +580,14 @@ const AdminPanel = () => {
           <h1 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase italic">
             {activeAdminTab === 'Tasks' ? 'Task Management' : 
              activeAdminTab === 'Users' ? 'User Management' : 
-             activeAdminTab === 'Withdrawals' ? 'Payout Records' : 'Submission Verifications'}
+             activeAdminTab === 'Withdrawals' ? 'Payout Records' : 
+             activeAdminTab === 'Reports' ? 'Task Reports' : 'Submission Verifications'}
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 mt-1">
             {activeAdminTab === 'Tasks' ? 'Distribute new tasks to the network.' : 
              activeAdminTab === 'Users' ? 'View all registered users and their details.' : 
-             activeAdminTab === 'Withdrawals' ? 'View historical payout data and completed transactions.' : 'Review and approve user submissions.'}
+             activeAdminTab === 'Withdrawals' ? 'View historical payout data and completed transactions.' : 
+             activeAdminTab === 'Reports' ? 'Review problems reported by users.' : 'Review and approve user submissions.'}
           </p>
         </header>
 
@@ -604,6 +636,19 @@ const AdminPanel = () => {
             }`}
           >
             Paid
+          </button>
+          <button 
+            onClick={() => setActiveAdminTab('Reports')}
+            className={`flex-1 sm:flex-none px-4 sm:px-8 py-2.5 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all relative ${
+              activeAdminTab === 'Reports' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-gray-500 hover:text-white'
+            }`}
+          >
+            Reports
+            {reports.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[8px] flex items-center justify-center animate-pulse">
+                {reports.length}
+              </span>
+            )}
           </button>
         </div>
 
@@ -1265,6 +1310,75 @@ const AdminPanel = () => {
             <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">No users registered yet.</p>
           </div>
         )}
+      </section>
+    ) : activeAdminTab === 'Reports' ? (
+      <section className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-xl font-bold italic uppercase tracking-tight">User Reported Issues</h2>
+          <div className="px-4 py-2 bg-white/[0.03] border border-white/5 rounded-2xl">
+            <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Active: </span>
+            <span className="text-sm font-black text-white">{reports.length}</span>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {reports.length > 0 ? (
+            reports.map(report => (
+              <div key={report.id} className="bg-white/[0.02] border border-white/5 p-6 rounded-[32px] group hover:border-red-500/20 transition-all">
+                <div className="flex flex-col sm:flex-row justify-between items-start gap-6">
+                  <div className="flex-1 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-red-500/10 rounded-xl flex items-center justify-center border border-red-500/20 text-red-500">
+                        <AlertCircle size={20} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Reported Problem</span>
+                          <span className="text-gray-700 text-[10px]">•</span>
+                          <span className="text-[10px] font-bold text-gray-500 uppercase">{new Date(report.created_at).toLocaleString()}</span>
+                        </div>
+                        <h4 className="text-sm font-bold text-white mt-0.5">{report.message.split(' | ')[2]?.replace('PROBLEM: ', '') || 'No details provided'}</h4>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="px-4 py-3 bg-black/40 rounded-2xl border border-white/5">
+                        <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest block mb-1">User Email</span>
+                        <span className="text-xs text-gray-300 font-bold">{report.message.split(' | ')[0]?.replace('FROM: ', '') || 'Unknown'}</span>
+                      </div>
+                      <div className="px-4 py-3 bg-black/40 rounded-2xl border border-white/5">
+                        <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest block mb-1">Task ID</span>
+                        <span className="text-xs text-blue-500 font-black">{report.message.split(' | ')[1]?.replace('TASK: ', '') || 'N/A'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-row sm:flex-col gap-2 w-full sm:w-auto">
+                    <button 
+                      onClick={() => handleSendAlert(report.message.split(' | ')[0]?.replace('FROM: ', ''))}
+                      className="flex-1 sm:flex-none px-6 py-3 bg-blue-600/10 text-blue-500 rounded-xl font-bold text-xs hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center gap-2"
+                    >
+                      <MessageSquare size={16} />
+                      REPLY
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteReport(report.id)}
+                      className="flex-1 sm:flex-none px-6 py-3 bg-white/[0.03] border border-white/10 text-gray-500 rounded-xl font-bold text-xs hover:text-white hover:bg-red-600 hover:border-red-600 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Check size={16} />
+                      RESOLVE
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="py-20 text-center bg-white/[0.01] border border-dashed border-white/10 rounded-[32px]">
+              <CheckCircle2 size={48} className="mx-auto text-gray-700 mb-4" />
+              <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">No active reports. Everything is smooth!</p>
+            </div>
+          )}
+        </div>
       </section>
     ) : activeAdminTab === 'Withdrawals' ? (
       <section className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
