@@ -250,17 +250,17 @@ const Navbar = () => {
               }
               setShowAlertsModal(!showAlertsModal);
             }}
-            className="p-2 text-gray-400 hover:text-white transition-colors relative"
+            className="p-2.5 text-gray-400 hover:text-white transition-colors relative bell-button active:scale-90"
           >
             <Bell size={20} />
             {unreadAlerts > 0 && (
-              <span className="absolute top-2 right-2 w-2 h-2 bg-blue-600 rounded-full border-2 border-black animate-pulse"></span>
+              <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-blue-600 rounded-full border-2 border-black animate-pulse"></span>
             )}
           </button>
 
           {/* Alerts Modal */}
           {showAlertsModal && (
-            <div className="fixed top-20 right-4 z-[100] w-80 alerts-modal bg-[#080808] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="fixed top-[72px] right-4 left-4 sm:left-auto sm:w-80 z-[100] alerts-modal bg-[#080808] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
               <div className="px-5 py-4 border-b border-white/5 bg-white/[0.01] flex items-center justify-between">
                 <h3 className="font-bold text-white">Notifications</h3>
                 <button 

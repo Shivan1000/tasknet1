@@ -62,12 +62,21 @@ interface CustomAlert {
   type: 'success' | 'error' | 'info';
 }
 
+interface Report {
+  id: string;
+  user_email: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
+
 const AdminPanel = () => {
   const [passcode, setPasscode] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalRequest[]>([]);
+  const [reports, setReports] = useState<Report[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [activeAdminTab, setActiveAdminTab] = useState('Tasks');
   
