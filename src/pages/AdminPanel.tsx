@@ -202,7 +202,8 @@ const AdminPanel = () => {
     }
 
     try {
-      await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+      const discordUrl = `https://discord.com/api/v10/channels/${channelId}/messages`;
+      await fetch(`https://corsproxy.io/?${encodeURIComponent(discordUrl)}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bot ${token}`,
