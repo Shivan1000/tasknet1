@@ -232,7 +232,6 @@ const Dashboard = () => {
           </aside>
         </div>
       </div>
-      </div>
     </Layout>
   );
 };

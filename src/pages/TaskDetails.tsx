@@ -549,7 +549,6 @@ const TaskDetails = () => {
         </div>
       </div>
     )}
-    </div>
   </Layout>
   );
 };

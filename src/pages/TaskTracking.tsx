@@ -258,7 +258,6 @@ const TaskTracking = () => {
           </div>
         </div>
       </div>
-      </div>
     </Layout>
   );
 };

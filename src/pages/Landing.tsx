@@ -11,7 +11,7 @@ const Landing = () => {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white selection:bg-blue-600 animate-in fade-in slide-in-from-bottom-4 duration-300">
+    <div className="min-h-screen bg-black text-white selection:bg-blue-600">
       {/* Background Decor */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[70%] h-[70%] rounded-full bg-blue-900/10 blur-[120px]"></div>
