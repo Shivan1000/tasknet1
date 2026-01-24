@@ -429,6 +429,7 @@ const Account = () => {
 
   return (
     <Layout>
+      <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
       {/* Custom Alert Toast */}
       <div className={`fixed top-6 left-6 right-6 md:left-auto md:right-10 z-[100] pointer-events-none flex justify-center md:justify-end transition-all duration-300 transform ${
         activeAlert.show ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-4 scale-95'
@@ -511,6 +512,7 @@ const Account = () => {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </Layout>
   );
