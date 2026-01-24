@@ -312,7 +312,7 @@ const Navbar = () => {
               e.stopPropagation();
               navigate('/account');
             }}
-            className="hidden sm:flex items-center justify-center p-6 text-gray-400 hover:text-blue-500 transition-all hover:scale-110 active:scale-95 relative z-10 cursor-pointer"
+            className="hidden sm:flex items-center justify-center w-14 h-14 text-gray-400 hover:text-blue-500 hover:bg-white/5 rounded-xl transition-all active:scale-95 relative z-[60]"
             title="Account Settings"
           >
             <Settings size={24} />
