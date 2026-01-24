@@ -169,15 +169,26 @@ const AdminPanel = () => {
   };
 
   const handleDeleteReport = async (id: string) => {
-    const { error } = await supabase
-      .from('admin_alerts')
-      .delete()
-      .eq('id', id);
+    // 1. Immediate Optimistic Update
+    setReports(prev => prev.filter(r => r.id !== id));
     
-    if (error) {
-      showAlert('Error deleting report', 'error');
-    } else {
-      showAlert('Report deleted', 'success');
+    try {
+      const { error } = await supabase
+        .from('admin_alerts')
+        .delete()
+        .eq('id', id);
+      
+      if (error) {
+        console.error('Delete error:', error);
+        showAlert('Error: ' + error.message, 'error');
+        fetchReports(); // Rollback only on actual error
+      } else {
+        showAlert('Report resolved', 'success');
+        // We DO NOT call fetchReports() here to prevent race conditions
+        // The 10s interval will eventually sync the state if needed
+      }
+    } catch (err) {
+      console.error('Catch error:', err);
       fetchReports();
     }
   };
@@ -1365,7 +1376,7 @@ const AdminPanel = () => {
                       onClick={() => handleDeleteReport(report.id)}
                       className="flex-1 sm:flex-none px-6 py-3 bg-white/[0.03] border border-white/10 text-gray-500 rounded-xl font-bold text-xs hover:text-white hover:bg-red-600 hover:border-red-600 transition-all flex items-center justify-center gap-2"
                     >
-                      <Check size={16} />
+                      <Trash2 size={16} />
                       RESOLVE
                     </button>
                   </div>

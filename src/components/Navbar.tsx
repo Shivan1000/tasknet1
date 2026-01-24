@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutGrid, Home, ListTodo, WalletCards, Bell, Menu, X, LogOut, Settings, Wallet } from 'lucide-react';
+import { Home, ListTodo, WalletCards, Bell, Menu, X, LogOut, Settings, Wallet } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const Navbar = () => {
@@ -15,11 +15,28 @@ const Navbar = () => {
   
   const userEmail = localStorage.getItem('user_email') || '';
 
+  // Handle click outside for alerts modal
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showAlertsModal && event.target instanceof Element) {
+        const isInsideModal = event.target.closest('.alerts-modal');
+        const isInsideBell = event.target.closest('.bell-button');
+        if (!isInsideModal && !isInsideBell) {
+          setShowAlertsModal(false);
+        }
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showAlertsModal]);
+
+  // Fetch profile and alerts
   useEffect(() => {
     if (userEmail) {
       fetchUserProfile();
       fetchAlerts();
-      fetchAllAlerts(); // Fetch all alerts for the modal
+      fetchAllAlerts();
       
       // Subscribe to profile changes (for balance updates)
       const profileChannel = supabase
@@ -34,7 +51,7 @@ const Navbar = () => {
         .channel('alert-changes')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'admin_alerts', filter: `user_email=eq.${userEmail}` }, () => {
           fetchAlerts();
-          fetchAllAlerts(); // Refresh all alerts when new one arrives
+          fetchAllAlerts();
         })
         .subscribe();
 
@@ -43,15 +60,7 @@ const Navbar = () => {
         supabase.removeChannel(alertChannel);
       };
     }
-
-    const handleClickOutside = (event: MouseEvent) => {
-      if (showAlertsModal && event.target instanceof Element && !event.target.closest('.alerts-modal') && !event.target.closest('.bell-button')) {
-        setShowAlertsModal(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [userEmail, showAlertsModal]);
+  }, [userEmail]);
 
   const fetchUserProfile = async () => {
     try {
@@ -242,35 +251,40 @@ const Navbar = () => {
           </button>
 
           <button 
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsMobileMenuOpen(false); // Close mobile menu if open
               if (unreadAlerts > 0) {
-                // Mark all unread alerts as read
                 supabase.from('admin_alerts').update({ is_read: true }).eq('user_email', userEmail);
                 setUnreadAlerts(0);
               }
               setShowAlertsModal(!showAlertsModal);
             }}
-            className="p-2.5 text-gray-400 hover:text-white transition-colors relative bell-button active:scale-90"
+            className="p-3 text-gray-400 hover:text-white transition-colors relative bell-button active:scale-90 touch-manipulation"
           >
             <Bell size={20} />
             {unreadAlerts > 0 && (
-              <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-blue-600 rounded-full border-2 border-black animate-pulse"></span>
+              <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-blue-600 rounded-full border-2 border-black animate-pulse"></span>
             )}
           </button>
 
           {/* Alerts Modal */}
           {showAlertsModal && (
-            <div className="fixed top-[72px] right-4 left-4 sm:left-auto sm:w-80 z-[100] alerts-modal bg-[#080808] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="fixed top-[76px] right-2 left-2 sm:left-auto sm:right-4 sm:w-80 z-[200] alerts-modal bg-[#080808] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
               <div className="px-5 py-4 border-b border-white/5 bg-white/[0.01] flex items-center justify-between">
                 <h3 className="font-bold text-white">Notifications</h3>
                 <button 
-                  onClick={() => setShowAlertsModal(false)}
-                  className="text-gray-500 hover:text-white"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowAlertsModal(false);
+                  }}
+                  className="p-1 text-gray-500 hover:text-white rounded-lg hover:bg-white/10 transition-all"
                 >
                   <X size={16} />
                 </button>
               </div>
-              <div className="max-h-96 overflow-y-auto">
+              <div className="max-h-[60vh] sm:max-h-96 overflow-y-auto">
                 {alerts.length > 0 ? (
                   alerts.map((alert) => (
                     <div 
@@ -292,32 +306,43 @@ const Navbar = () => {
             </div>
           )}
 
-
           <button 
-            onClick={() => navigate('/account')}
-            className="p-2 text-gray-400 hover:text-blue-500 transition-all hover:scale-110 active:scale-95"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              navigate('/account');
+            }}
+            className="hidden sm:flex items-center justify-center p-6 text-gray-400 hover:text-blue-500 transition-all hover:scale-110 active:scale-95 relative z-10 cursor-pointer"
             title="Account Settings"
           >
-            <Settings size={20} />
+            <Settings size={24} />
           </button>
           
-          <div 
-            onClick={() => navigate('/account')}
-            className="flex items-center gap-3 px-2 py-1.5 rounded-full border border-white/5 bg-white/[0.03] hover:bg-white/[0.06] transition-all cursor-pointer group"
-          >
+          <div className="hidden sm:flex items-center gap-3 px-2 py-1.5 rounded-full border border-white/5 bg-white/[0.03] hover:bg-white/[0.06] transition-all group pointer-events-none select-none">
             <div className="flex items-center gap-3 pl-2">
-              <span className="hidden sm:block text-sm font-bold text-white group-hover:text-blue-400 transition-colors max-w-[100px] truncate">
+              <span className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors max-w-[100px] truncate">
                 {displayName}
               </span>
-              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-xs font-black text-white shadow-[0_0_15px_rgba(37,99,235,0.3)] group-hover:scale-105 transition-transform uppercase">
+              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-xs font-black text-white shadow-[0_0_15px_rgba(37,99,235,0.3)] transition-transform uppercase">
                 {displayName[0]}
               </div>
             </div>
           </div>
 
+          {/* Mobile: Just show avatar */}
+          <div 
+            onClick={() => navigate('/account')}
+            className="sm:hidden w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center text-xs font-black text-white shadow-[0_0_15px_rgba(37,99,235,0.3)] active:scale-95 transition-transform uppercase cursor-pointer"
+          >
+            {displayName[0]}
+          </div>
+
           <button 
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden p-2 text-gray-400 hover:text-white transition-colors"
+            onClick={() => {
+              setShowAlertsModal(false); // Close alerts if open
+              setIsMobileMenuOpen(!isMobileMenuOpen);
+            }}
+            className="md:hidden p-2 text-gray-400 hover:text-white transition-colors touch-manipulation"
           >
             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -349,21 +374,28 @@ const Navbar = () => {
             {/* Divider */}
             <div className="h-[1px] bg-white/5 my-2 mx-4"></div>
 
+            {/* Profile Info */}
+            <div className="flex items-center gap-3 px-6 py-3 mx-2 rounded-xl bg-white/[0.02] border border-white/5">
+              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-sm font-black text-white uppercase">
+                {displayName[0]}
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-white text-sm">{displayName}</p>
+                <p className="text-xs text-gray-500">{userEmail}</p>
+              </div>
+            </div>
+
             {/* Settings Button */}
-            <NavLink
-              to="/account"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-4 px-6 py-4 rounded-2xl transition-all ${
-                  isActive 
-                    ? 'bg-blue-600 text-white' 
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
-                }`
-              }
+            <button
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                navigate('/account');
+              }}
+              className="flex items-center gap-4 px-6 py-4 rounded-2xl text-gray-400 hover:text-white hover:bg-white/5 transition-all"
             >
               <Settings size={18} />
-              <span className="font-bold">Settings</span>
-            </NavLink>
+              <span className="font-bold">Account Settings</span>
+            </button>
 
             {/* Logout Button */}
             <button
