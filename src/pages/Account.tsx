@@ -25,6 +25,12 @@ const Account = () => {
   const [loading, setLoading] = useState(false);
   const [fetchingReddit, setFetchingReddit] = useState(false);
 
+  // Password change states
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
+
   // Custom Alert State
   const [activeAlert, setActiveAlert] = useState<CustomAlert>({ show: false, message: '', type: 'info' });
 
@@ -206,6 +212,61 @@ const Account = () => {
   const handleLogout = () => {
     localStorage.removeItem('user_email');
     navigate('/welcome');
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      showAlert('Please fill in all password fields.', 'error');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      showAlert('New passwords do not match.', 'error');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      showAlert('New password must be at least 6 characters.', 'error');
+      return;
+    }
+
+    setChangingPassword(true);
+
+    // Verify current password
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('password')
+      .eq('email', email)
+      .single();
+
+    if (error || !profile) {
+      showAlert('Error verifying current password.', 'error');
+      setChangingPassword(false);
+      return;
+    }
+
+    if (profile.password !== currentPassword) {
+      showAlert('Current password is incorrect.', 'error');
+      setChangingPassword(false);
+      return;
+    }
+
+    // Update password
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ password: newPassword, updated_at: new Date().toISOString() })
+      .eq('email', email);
+
+    if (updateError) {
+      showAlert('Error updating password: ' + updateError.message, 'error');
+    } else {
+      showAlert('Password changed successfully!', 'success');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    }
+
+    setChangingPassword(false);
   };
 
   const menuItems = [
@@ -409,15 +470,58 @@ const Account = () => {
       case 'Change Password':
         return (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <h3 className="text-xl font-bold mb-6">Security Update</h3>
-            <div className="p-8 bg-white/[0.02] border border-dashed border-white/10 rounded-3xl text-center">
-              <Shield className="mx-auto mb-4 text-gray-600" size={32} />
-              <p className="text-gray-500 text-sm mb-6">Password management is handled via secure reset links sent to your email.</p>
-              <button 
-                onClick={() => showAlert('Reset link sent to ' + email, 'success')}
-                className="px-6 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl font-bold text-sm transition-all"
+            <h3 className="text-xl font-bold mb-2">Change Password</h3>
+            <p className="text-gray-500 text-sm mb-8">Update your account password securely.</p>
+            
+            <div className="max-w-xl space-y-6">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-2 tracking-widest">Current Password</label>
+                <div className="relative group">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-blue-500 transition-colors" size={16} />
+                  <input
+                    type="password"
+                    placeholder="Enter current password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 bg-white/[0.03] border border-white/5 rounded-xl focus:outline-none focus:border-blue-500 transition-all text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-2 tracking-widest">New Password</label>
+                <div className="relative group">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-blue-500 transition-colors" size={16} />
+                  <input
+                    type="password"
+                    placeholder="Enter new password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 bg-white/[0.03] border border-white/5 rounded-xl focus:outline-none focus:border-blue-500 transition-all text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-2 tracking-widest">Confirm New Password</label>
+                <div className="relative group">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-blue-500 transition-colors" size={16} />
+                  <input
+                    type="password"
+                    placeholder="Confirm new password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 bg-white/[0.03] border border-white/5 rounded-xl focus:outline-none focus:border-blue-500 transition-all text-sm"
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={handleChangePassword}
+                disabled={changingPassword}
+                className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-600/20"
               >
-                Send Reset Email
+                {changingPassword ? 'Updating Password...' : 'Update Password'}
               </button>
             </div>
           </div>
