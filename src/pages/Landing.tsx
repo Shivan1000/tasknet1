@@ -84,9 +84,9 @@ const Landing = () => {
         <div className="max-w-7xl mx-auto px-8 flex flex-col md:flex-row items-center justify-between gap-8 text-gray-600 text-xs font-bold uppercase tracking-widest">
           <p>© 2026 TaskNet Infrastructure. All Rights Reserved.</p>
           <div className="flex gap-10">
-            <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
-            <a href="#" className="hover:text-white transition-colors">Contact Support</a>
+            <button onClick={() => navigate('/privacy')} className="hover:text-white transition-colors">Privacy Policy</button>
+            <button onClick={() => navigate('/terms')} className="hover:text-white transition-colors">Terms of Service</button>
+            <a href="https://discord.gg/3KUHvggF6k" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">Contact Support</a>
           </div>
         </div>
       </footer>
