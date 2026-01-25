@@ -16,6 +16,7 @@ interface Task {
   instructions: string;
   status: string;
   claimed_by: string;
+  deadline: string;
 }
 
 interface CustomAlert {
@@ -275,7 +276,7 @@ const TaskDetails = () => {
             <div className="flex items-center gap-4 text-gray-500">
               <div className="flex items-center gap-1.5 text-xs font-bold">
                 <Clock size={14} />
-                Average completion time: ~3 minutes
+                Deadline: {new Date(task.deadline).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
               </div>
             </div>
           </div>
@@ -295,18 +296,6 @@ const TaskDetails = () => {
             <p className="text-sm leading-relaxed text-gray-400">
               Deleting your post/comment after receiving payment will result in a <span className="text-red-500 font-bold">permanent ban</span> from the platform. Keep your submissions live to maintain eligibility.
             </p>
-          </div>
-        </div>
-
-        {/* Dashboard Status */}
-        <div className="grid grid-cols-2 gap-4 mb-10">
-          <div className="bg-white/[0.02] border border-white/5 p-6 rounded-3xl">
-            <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest block mb-2">Earned</span>
-            <span className="text-2xl font-black text-white">$0.00</span>
-          </div>
-          <div className="bg-white/[0.02] border border-white/5 p-6 rounded-3xl">
-            <span className="text-[10px] font-black text-orange-500/60 uppercase tracking-widest block mb-2">Pending</span>
-            <span className="text-2xl font-black text-orange-500">${task.reward}</span>
           </div>
         </div>
 
@@ -549,6 +538,7 @@ const TaskDetails = () => {
         </div>
       </div>
     )}
+    </div>
   </Layout>
   );
 };

@@ -153,9 +153,8 @@ const Dashboard = () => {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            <section className="bg-white/[0.02] border border-white/5 rounded-3xl p-4 sm:p-8">
+        <div className="grid grid-cols-1 gap-8">
+          <section className="bg-white/[0.02] border border-white/5 rounded-3xl p-4 sm:p-8">
               <div className="flex items-center justify-between mb-8">
                 <h2 className="text-xl font-bold">Available Tasks</h2>
                 <button 
@@ -213,24 +212,8 @@ const Dashboard = () => {
                 )}
               </div>
             </section>
-          </div>
-
-          <aside className="space-y-8">
-            <section className="bg-blue-600 rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden group">
-              <div className="relative z-10">
-                <h3 className="text-lg font-bold mb-2">Premium Access</h3>
-                <p className="text-blue-100 text-sm mb-6 leading-relaxed">Unlock high-priority tasks and faster payouts today.</p>
-                <button 
-                  onClick={() => showAlert('Premium features are currently invite-only.', 'info')}
-                  className="w-full py-3 bg-white text-blue-600 rounded-xl font-bold text-sm hover:bg-blue-50 transition-colors"
-                >
-                  Upgrade Now
-                </button>
-              </div>
-              <div className="absolute top-[-20%] right-[-10%] w-32 h-32 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all"></div>
-            </section>
-          </aside>
         </div>
+      </div>
       </div>
     </Layout>
   );
