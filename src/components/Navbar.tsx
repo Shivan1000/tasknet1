@@ -161,6 +161,14 @@ const Navbar = () => {
             setRedditStatus('active');
             const totalKarma = userData.total_karma ?? (userData.link_karma + userData.comment_karma || 0);
             setRedditKarma(totalKarma);
+            
+            // Sync karma to database
+            supabase.from('profiles')
+              .update({ reddit_karma: totalKarma })
+              .eq('email', userEmail)
+              .then(({ error }) => {
+                if (error) console.error('[Navbar] Error syncing karma:', error);
+              });
           }
         }
       } else {

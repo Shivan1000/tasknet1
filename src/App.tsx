@@ -7,7 +7,10 @@ import Account from './pages/Account';
 import Login from './pages/Login';
 import RedditLogin from './pages/RedditLogin';
 import AdminPanel from './pages/AdminPanel';
+import AdminPanel_2 from './pages/AdminPanel_2';
 import TaskDetails from './pages/TaskDetails';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsAndConditions from './pages/TermsAndConditions';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -25,7 +28,10 @@ function App() {
         <Route path="/welcome" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/reddit-login" element={<RedditLogin />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<TermsAndConditions />} />
         <Route path="/adminpanel_1" element={<AdminPanel />} />
+        <Route path="/adminpanel_2" element={<AdminPanel_2 />} />
         
         {/* Protected Routes */}
         <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
