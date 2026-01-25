@@ -254,24 +254,25 @@ const Navbar = () => {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              setIsMobileMenuOpen(false); // Close mobile menu if open
+              setIsMobileMenuOpen(false);
               if (unreadAlerts > 0) {
                 supabase.from('admin_alerts').update({ is_read: true }).eq('user_email', userEmail);
                 setUnreadAlerts(0);
               }
               setShowAlertsModal(!showAlertsModal);
             }}
-            className="p-3 text-gray-400 hover:text-white transition-colors relative bell-button active:scale-90 touch-manipulation"
+            className="p-4 text-gray-400 hover:text-white transition-colors relative bell-button active:scale-90 touch-manipulation z-[60]"
+            style={{ minWidth: '48px', minHeight: '48px' }}
           >
-            <Bell size={20} />
-            {unreadAlerts > 0 && (
-              <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-blue-600 rounded-full border-2 border-black animate-pulse"></span>
+            <Bell size={22} />
+            {unreadAlerts > 0 && !showAlertsModal && (
+              <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-blue-600 rounded-full border-2 border-black animate-pulse"></span>
             )}
           </button>
 
           {/* Alerts Modal */}
           {showAlertsModal && (
-            <div className="fixed top-[76px] right-2 left-2 sm:left-auto sm:right-4 sm:w-80 z-[200] alerts-modal bg-[#080808] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="fixed top-[80px] right-2 left-2 sm:left-auto sm:right-4 sm:w-80 z-[200] alerts-modal bg-[#080808] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
               <div className="px-5 py-4 border-b border-white/5 bg-white/[0.01] flex items-center justify-between">
                 <h3 className="font-bold text-white">Notifications</h3>
                 <button 
@@ -279,9 +280,9 @@ const Navbar = () => {
                     e.stopPropagation();
                     setShowAlertsModal(false);
                   }}
-                  className="p-1 text-gray-500 hover:text-white rounded-lg hover:bg-white/10 transition-all"
+                  className="p-2 text-gray-500 hover:text-white rounded-lg hover:bg-white/10 transition-all active:scale-90"
                 >
-                  <X size={16} />
+                  <X size={18} />
                 </button>
               </div>
               <div className="max-h-[60vh] sm:max-h-96 overflow-y-auto">
