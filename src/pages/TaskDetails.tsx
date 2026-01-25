@@ -68,7 +68,7 @@ const TaskDetails = () => {
   };
 
   const fetchUserProfile = async () => {
-    const email = localStorage.getItem('user_email') || getCookie('user_email');
+    const email = getCookie('user_email') || localStorage.getItem('user_email');
     if (!email) return;
     const { data } = await supabase
       .from('profiles')
@@ -79,11 +79,11 @@ const TaskDetails = () => {
   };
 
   const handleClaim = async () => {
-    const email = localStorage.getItem('user_email') || getCookie('user_email');
+    const email = getCookie('user_email') || localStorage.getItem('user_email');
     if (!email) return;
 
     // Check if user has linked a valid Reddit account
-    if (!redditUsername || redditUsername === 'not_connected') {
+    if (!redditUsername || redditUsername === 'not_connected' || !redditUsername.trim()) {
       showAlert('You must link a valid Reddit account in your Profile settings to claim tasks.', 'error');
       setTimeout(() => navigate('/account'), 2000);
       return;
@@ -128,7 +128,7 @@ const TaskDetails = () => {
     if (!reportMessage.trim()) return;
     
     setIsReporting(true);
-    const email = localStorage.getItem('user_email') || getCookie('user_email');
+    const email = getCookie('user_email') || localStorage.getItem('user_email');
     
     const { error } = await supabase
       .from('admin_alerts') // Using same table but maybe we should have a 'reports' table. 
@@ -184,7 +184,7 @@ const TaskDetails = () => {
     setSubmitting(true);
     setShowConfirmModal(false);
     
-    const email = localStorage.getItem('user_email') || getCookie('user_email');
+    const email = getCookie('user_email') || localStorage.getItem('user_email');
     if (!email) {
       showAlert('Session expired. Please log in again.', 'error');
       setSubmitting(false);

@@ -50,7 +50,7 @@ const TaskTracking = () => {
 
   const fetchTasks = async () => {
     setLoading(true);
-    const userEmail = localStorage.getItem('user_email') || getCookie('user_email') || 'Guest';
+    const userEmail = getCookie('user_email') || localStorage.getItem('user_email') || 'Guest';
     
     // Fetch tasks where is_hidden is false
     // We will filter them client-side for the tabs
@@ -69,7 +69,7 @@ const TaskTracking = () => {
   };
 
   const filteredTasks = tasks.filter(task => {
-    const userEmail = localStorage.getItem('user_email') || getCookie('user_email') || 'Guest';
+    const userEmail = getCookie('user_email') || localStorage.getItem('user_email') || 'Guest';
     const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          task.category.toLowerCase().includes(searchQuery.toLowerCase());
     

@@ -13,7 +13,7 @@ interface CustomAlert {
 const Account = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('Personal Settings');
-  const [email, setEmail] = useState(localStorage.getItem('user_email') || getCookie('user_email') || '');
+  const [email, setEmail] = useState(getCookie('user_email') || localStorage.getItem('user_email') || '');
   const [serverUsername, setServerUsername] = useState('');
   const [redditUsername, setRedditUsername] = useState('');
   const [redditLink, setRedditLink] = useState('');
@@ -65,9 +65,7 @@ const Account = () => {
             'Accept': 'application/json',
           }
         });
-        console.log('Direct API - Response status:', response.status);
       } catch (directError) {
-        console.log('Direct API failed, trying CORS proxy:', directError);
         // Fallback to CORS proxy
         const redditUrl = `https://www.reddit.com/user/${username}/about.json`;
         response = await fetch(`https://corsproxy.io/?${encodeURIComponent(redditUrl)}`, {
@@ -75,66 +73,46 @@ const Account = () => {
             'Accept': 'application/json',
           }
         });
-        console.log('CORS Proxy - Response status:', response.status);
       }
       
       if (response.status === 404) {
-        console.log('Account not found (404)');
         setRedditStatus('not_found');
         setRedditKarma(null);
       } else if (response.status === 403) {
-        console.log('Account forbidden/suspended (403)');
         setRedditStatus('suspended');
         setRedditKarma(null);
       } else if (response.ok) {
         json = await response.json();
-        console.log('Full Reddit API Response:', JSON.stringify(json, null, 2));
         
         if (json && json.data) {
           const userData = json.data;
-          console.log('User data found:', {
-            name: userData.name,
-            is_suspended: userData.is_suspended,
-            total_karma: userData.total_karma,
-            link_karma: userData.link_karma,
-            comment_karma: userData.comment_karma,
-            subreddit: userData.subreddit
-          });
           
           // Check if account is suspended
           if (userData.is_suspended === true) {
-            console.log('Account IS suspended');
             setRedditStatus('suspended');
             setRedditKarma(null);
           } else if (userData.subreddit && userData.subreddit.subreddit_type === 'user') {
             // Valid user account
-            console.log('Account is ACTIVE');
             setRedditStatus('active');
             const totalKarma = userData.total_karma ?? (userData.link_karma + userData.comment_karma || 0);
-            console.log('Calculated karma:', totalKarma);
             setRedditKarma(totalKarma);
           } else {
-            console.log('Account structure unexpected');
             setRedditStatus('active');
             const totalKarma = userData.total_karma ?? (userData.link_karma + userData.comment_karma || 0);
             setRedditKarma(totalKarma);
           }
         } else if (json && json.error === 404) {
-          console.log('Error 404 in response body');
           setRedditStatus('not_found');
           setRedditKarma(null);
         } else {
-          console.log('No data field in response:', json);
           setRedditStatus('not_found');
           setRedditKarma(null);
         }
       } else {
-        console.log('Response not ok, status:', response.status);
         setRedditStatus('not_found');
         setRedditKarma(null);
       }
     } catch (err) {
-      console.error('Error fetching Reddit data:', err);
       setRedditStatus('not_found');
       setRedditKarma(null);
     }

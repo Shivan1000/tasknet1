@@ -31,7 +31,7 @@ const PAYMENT_LABELS = {
 const WithdrawEarnings = () => {
   const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(true);
-  const userEmail = localStorage.getItem('user_email') || getCookie('user_email') || '';
+  const userEmail = getCookie('user_email') || localStorage.getItem('user_email') || '';
   
   // Payout Methods State
   const [payoutMethods, setPayoutMethods] = useState<PayoutMethod[]>([]);

@@ -13,7 +13,7 @@ const Navbar = () => {
   const [showAlertsModal, setShowAlertsModal] = useState(false);
   const [alerts, setAlerts] = useState<any[]>([]);
   
-  const userEmail = localStorage.getItem('user_email') || getCookie('user_email') || '';
+  const userEmail = getCookie('user_email') || localStorage.getItem('user_email') || '';
 
   // Handle click outside for alerts modal
   useEffect(() => {
@@ -92,7 +92,7 @@ const Navbar = () => {
         }
       }
     } catch (err) {
-      console.error('Error fetching user profile:', err);
+      // Error fetching user profile
     }
   };
 
@@ -114,7 +114,7 @@ const Navbar = () => {
       .order('created_at', { ascending: false });
     
     if (error) {
-      console.error('Error fetching alerts:', error);
+      // Error fetching alerts
     } else {
       setAlerts(data || []);
     }
@@ -132,9 +132,7 @@ const Navbar = () => {
             'Accept': 'application/json',
           }
         });
-        console.log('[Navbar] Direct API - Response status:', response.status);
       } catch (directError) {
-        console.log('[Navbar] Direct API failed, trying CORS proxy');
         // Fallback to CORS proxy
         const redditUrl = `https://www.reddit.com/user/${username}/about.json`;
         response = await fetch(`https://corsproxy.io/?${encodeURIComponent(redditUrl)}`, {
@@ -142,7 +140,6 @@ const Navbar = () => {
             'Accept': 'application/json',
           }
         });
-        console.log('[Navbar] CORS Proxy - Response status:', response.status);
       }
       
       if (response.status === 404) {
@@ -151,7 +148,6 @@ const Navbar = () => {
         setRedditStatus('suspended');
       } else if (response.ok) {
         const json = await response.json();
-        console.log('[Navbar] Reddit API Response:', json);
         
         if (json && json.data) {
           const userData = json.data;
@@ -167,7 +163,7 @@ const Navbar = () => {
               .update({ reddit_karma: totalKarma })
               .eq('email', userEmail)
               .then(({ error }) => {
-                if (error) console.error('[Navbar] Error syncing karma:', error);
+                // Karma sync complete
               });
           }
         }
@@ -175,7 +171,6 @@ const Navbar = () => {
         setRedditStatus('not_found');
       }
     } catch (err) {
-      console.error('[Navbar] Error fetching Reddit info:', err);
       setRedditStatus('not_found');
     }
   };

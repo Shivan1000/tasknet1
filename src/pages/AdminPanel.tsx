@@ -134,7 +134,8 @@ const AdminPanel = () => {
 
   const handleAuth = (e: React.FormEvent) => {
     e.preventDefault();
-    if (passcode === 'SS@19151') {
+    const correctPasscode = import.meta.env.VITE_ADMIN_PASSCODE || 'SS@19151';
+    if (passcode === correctPasscode) {
       setIsAuthenticated(true);
       showAlert('Access granted. Welcome Admin.', 'success');
     } else {
@@ -149,7 +150,7 @@ const AdminPanel = () => {
       .order('created_at', { ascending: false });
     
     if (error) {
-      console.error('Error fetching withdrawal requests:', error);
+      // Error fetching withdrawal requests
     } else {
       setWithdrawalRequests(data || []);
     }
@@ -163,7 +164,7 @@ const AdminPanel = () => {
       .order('created_at', { ascending: false });
     
     if (error) {
-      console.error('Error fetching reports:', error);
+      // Error fetching reports
     } else {
       setReports(data || []);
     }

@@ -5,7 +5,7 @@ import { getCookie } from '../lib/supabase';
 
 const Landing = () => {
   const navigate = useNavigate();
-  const isAuthenticated = localStorage.getItem('user_email') || getCookie('user_email');
+  const isAuthenticated = getCookie('user_email') || localStorage.getItem('user_email');
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />;

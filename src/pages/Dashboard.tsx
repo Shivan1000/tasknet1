@@ -25,7 +25,7 @@ const Dashboard = () => {
   const [taskCounts, setTaskCounts] = useState({ active: 0, available: 0, completed: 0 });
   const [balance, setBalance] = useState(0);
   const [recentTasks, setRecentTasks] = useState<Task[]>([]);
-  const userEmail = localStorage.getItem('user_email') || getCookie('user_email') || '';
+  const userEmail = getCookie('user_email') || localStorage.getItem('user_email') || '';
 
   const showAlert = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setActiveAlert({ show: true, message, type });

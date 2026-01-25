@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Landing from './pages/Landing';
-import { getCookie } from './lib/supabase';
+import { getCookie, renewCookie } from './lib/supabase';
 import Dashboard from './pages/Dashboard';
 import TaskTracking from './pages/TaskTracking';
 import WithdrawEarnings from './pages/WithdrawEarnings';
@@ -15,7 +15,13 @@ import TermsAndConditions from './pages/TermsAndConditions';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const isAuthenticated = localStorage.getItem('user_email') || getCookie('user_email');
+  const isAuthenticated = getCookie('user_email') || localStorage.getItem('user_email');
+  
+  // Renew cookie on each navigation if authenticated
+  if (isAuthenticated) {
+    renewCookie('user_email');
+  }
+  
   if (!isAuthenticated) {
     return <Navigate to="/welcome" replace />;
   }
