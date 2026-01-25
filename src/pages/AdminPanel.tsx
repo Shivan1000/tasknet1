@@ -302,7 +302,12 @@ const AdminPanel = () => {
 
     const webhookUrl = 'https://discord.com/api/webhooks/1463922549120434186/4juUa6WRV4dCkAjfYv35DruT5VRS8AXT8TazwOCkbVGM1yBXnUP6hQHbdnjUqxGO9Dwp';
     
-    const message = `<@&1464974222559281210> 🚀 New task is published claim it in https://tasknet.site/dashboard`;
+    const message = `:rocket: NEW TASK ALERT
+
+A new task has been published.
+<@&1464974222559281210>
+:link: Claim it here:
+https://tasknet.site/dashboard`;
 
     try {
       await fetch(webhookUrl, {
