@@ -596,22 +596,24 @@ const Account = () => {
           <div className="flex-1 bg-white/[0.02] border border-white/5 rounded-[40px] p-8 sm:p-12">
             <div className="max-w-2xl">
               {renderContent()}
-
-              <div className="flex items-center gap-4 mt-16 pt-8 border-t border-white/5">
-                <button 
-                  onClick={fetchProfile}
-                  className="px-10 py-3.5 bg-white/5 border border-white/5 text-white rounded-2xl font-bold text-sm hover:bg-white/10 transition-all"
-                >
-                  Discard
-                </button>
-                <button 
-                  disabled={loading}
-                  onClick={handleSaveProfile}
-                  className="flex-1 py-3.5 bg-blue-600 text-white rounded-2xl font-bold text-sm hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/20 disabled:opacity-50"
-                >
-                  {loading ? 'Processing...' : 'Apply Changes'}
-                </button>
-              </div>
+              
+              {activeTab !== 'Change Password' && (
+                <div className="flex items-center gap-4 mt-16 pt-8 border-t border-white/5">
+                  <button 
+                    onClick={fetchProfile}
+                    className="px-10 py-3.5 bg-white/5 border border-white/5 text-white rounded-2xl font-bold text-sm hover:bg-white/10 transition-all"
+                  >
+                    Discard
+                  </button>
+                  <button 
+                    disabled={loading}
+                    onClick={handleSaveProfile}
+                    className="flex-1 py-3.5 bg-blue-600 text-white rounded-2xl font-bold text-sm hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/20 disabled:opacity-50"
+                  >
+                    {loading ? 'Processing...' : 'Apply Changes'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

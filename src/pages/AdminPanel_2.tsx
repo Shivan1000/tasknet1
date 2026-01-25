@@ -297,17 +297,12 @@ const AdminPanel = () => {
   };
 
   const sendDiscordNotification = async (task: any) => {
+    // Only send notification if it's for Everyone
+    if (task.assigned_to !== 'All') return;
+
     const webhookUrl = 'https://discord.com/api/webhooks/1463922549120434186/4juUa6WRV4dCkAjfYv35DruT5VRS8AXT8TazwOCkbVGM1yBXnUP6hQHbdnjUqxGO9Dwp';
     
-    const message = `🚀 **New Task Posted!**\n\n` +
-      `**ID:** ${task.task_id_display}\n` +
-      `**Title:** ${task.title}\n` +
-      `**Tier:** ${task.tier}\n` +
-      `**Category:** ${task.category}\n` +
-      `**Reward:** ${task.reward}\n` +
-      `**URL:** ${task.reddit_url}\n` +
-      `**Assigned To:** ${task.assigned_to === 'All' ? 'Everyone (Public)' : task.assigned_to}\n\n` +
-      `Go to the dashboard to claim it!`;
+    const message = `<@&1464974222559281210> 🚀 New task is published claim it in https://tasknet.site/dashboard`;
 
     try {
       await fetch(webhookUrl, {

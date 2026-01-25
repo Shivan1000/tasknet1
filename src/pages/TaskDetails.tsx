@@ -82,6 +82,13 @@ const TaskDetails = () => {
     const email = localStorage.getItem('user_email');
     if (!email) return;
 
+    // Check if user has linked a valid Reddit account
+    if (!redditUsername || redditUsername === 'not_connected') {
+      showAlert('You must link a valid Reddit account in your Profile settings to claim tasks.', 'error');
+      setTimeout(() => navigate('/account'), 2000);
+      return;
+    }
+
     setSubmitting(true);
     const { error } = await supabase
       .from('tasks')

@@ -269,7 +269,7 @@ const Navbar = () => {
               }
               setShowAlertsModal(!showAlertsModal);
             }}
-            className="p-4 text-gray-400 hover:text-white transition-colors relative bell-button active:scale-90 touch-manipulation z-[60]"
+            className="hidden md:flex p-4 text-gray-400 hover:text-white transition-colors relative bell-button active:scale-90 touch-manipulation z-[60]"
             style={{ minWidth: '48px', minHeight: '48px' }}
           >
             <Bell size={22} />
@@ -379,6 +379,29 @@ const Navbar = () => {
                 <span className="font-bold">{item.label}</span>
               </NavLink>
             ))}
+
+            {/* Notifications Button (Mobile) */}
+            <button
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                if (unreadAlerts > 0) {
+                  supabase.from('admin_alerts').update({ is_read: true }).eq('user_email', userEmail);
+                  setUnreadAlerts(0);
+                }
+                setShowAlertsModal(true);
+              }}
+              className="flex items-center justify-between px-6 py-4 mx-2 rounded-2xl bg-blue-600/10 border border-blue-600/20 text-blue-500 hover:bg-blue-600/20 transition-all group"
+            >
+              <div className="flex items-center gap-4">
+                <Bell size={18} className="group-hover:rotate-12 transition-transform" />
+                <span className="font-bold">Notifications</span>
+              </div>
+              {unreadAlerts > 0 && (
+                <span className="bg-blue-600 text-white text-[10px] font-black px-2 py-1 rounded-full animate-pulse">
+                  {unreadAlerts} NEW
+                </span>
+              )}
+            </button>
 
             {/* Divider */}
             <div className="h-[1px] bg-white/5 my-2 mx-4"></div>
