@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { ArrowLeft, MessageSquare, Shield, Clock, AlertCircle, CheckCircle2, Link2, ExternalLink, Send, X } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, getCookie } from '../lib/supabase';
 
 interface Task {
   id: string;
@@ -68,7 +68,7 @@ const TaskDetails = () => {
   };
 
   const fetchUserProfile = async () => {
-    const email = localStorage.getItem('user_email');
+    const email = localStorage.getItem('user_email') || getCookie('user_email');
     if (!email) return;
     const { data } = await supabase
       .from('profiles')
@@ -79,7 +79,7 @@ const TaskDetails = () => {
   };
 
   const handleClaim = async () => {
-    const email = localStorage.getItem('user_email');
+    const email = localStorage.getItem('user_email') || getCookie('user_email');
     if (!email) return;
 
     // Check if user has linked a valid Reddit account
@@ -128,7 +128,7 @@ const TaskDetails = () => {
     if (!reportMessage.trim()) return;
     
     setIsReporting(true);
-    const email = localStorage.getItem('user_email');
+    const email = localStorage.getItem('user_email') || getCookie('user_email');
     
     const { error } = await supabase
       .from('admin_alerts') // Using same table but maybe we should have a 'reports' table. 
@@ -184,7 +184,7 @@ const TaskDetails = () => {
     setSubmitting(true);
     setShowConfirmModal(false);
     
-    const email = localStorage.getItem('user_email');
+    const email = localStorage.getItem('user_email') || getCookie('user_email');
     if (!email) {
       showAlert('Session expired. Please log in again.', 'error');
       setSubmitting(false);

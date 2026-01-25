@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { Search, Filter, Inbox, ExternalLink, DollarSign, Clock, Check, AlertCircle, X, Shield } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, getCookie } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 
 interface Task {
@@ -50,7 +50,7 @@ const TaskTracking = () => {
 
   const fetchTasks = async () => {
     setLoading(true);
-    const userEmail = localStorage.getItem('user_email') || 'Guest';
+    const userEmail = localStorage.getItem('user_email') || getCookie('user_email') || 'Guest';
     
     // Fetch tasks where is_hidden is false
     // We will filter them client-side for the tabs
@@ -69,7 +69,7 @@ const TaskTracking = () => {
   };
 
   const filteredTasks = tasks.filter(task => {
-    const userEmail = localStorage.getItem('user_email') || 'Guest';
+    const userEmail = localStorage.getItem('user_email') || getCookie('user_email') || 'Guest';
     const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          task.category.toLowerCase().includes(searchQuery.toLowerCase());
     
@@ -120,17 +120,11 @@ const TaskTracking = () => {
       </div>
 
       <div className="max-w-7xl mx-auto">
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
+        <header className="mb-10">
           <div>
             <h1 className="text-3xl font-bold tracking-tight mb-2">Tasks</h1>
             <p className="text-gray-500 text-sm">Manage and track your assigned tasks.</p>
           </div>
-          <button 
-            onClick={() => showAlert('Opening task marketplace...', 'info')}
-            className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20"
-          >
-            Find New Tasks
-          </button>
         </header>
 
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8">
@@ -159,9 +153,6 @@ const TaskTracking = () => {
                 className="w-full pl-12 pr-4 py-2.5 bg-white/[0.03] border border-white/5 rounded-xl focus:outline-none focus:border-blue-500 transition-all text-sm"
               />
             </div>
-            <button className="p-2.5 bg-white/[0.03] border border-white/5 rounded-xl text-gray-400 hover:text-white transition-colors">
-              <Filter size={18} />
-            </button>
           </div>
         </div>
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { Activity, CreditCard, Layers, Zap, Check, X, AlertCircle, ArrowRight, Shield, Clock } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, getCookie } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 
 interface Task {
@@ -25,7 +25,7 @@ const Dashboard = () => {
   const [taskCounts, setTaskCounts] = useState({ active: 0, available: 0, completed: 0 });
   const [balance, setBalance] = useState(0);
   const [recentTasks, setRecentTasks] = useState<Task[]>([]);
-  const userEmail = localStorage.getItem('user_email') || '';
+  const userEmail = localStorage.getItem('user_email') || getCookie('user_email') || '';
 
   const showAlert = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setActiveAlert({ show: true, message, type });

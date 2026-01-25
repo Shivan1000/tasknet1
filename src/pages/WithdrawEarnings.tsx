@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { Wallet, ArrowUpRight, History, CreditCard, Inbox, Check, X, AlertCircle, Plus, Edit2, Trash2 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, getCookie } from '../lib/supabase';
 
 interface CustomAlert {
   show: boolean;
@@ -31,7 +31,7 @@ const PAYMENT_LABELS = {
 const WithdrawEarnings = () => {
   const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(true);
-  const userEmail = localStorage.getItem('user_email') || '';
+  const userEmail = localStorage.getItem('user_email') || getCookie('user_email') || '';
   
   // Payout Methods State
   const [payoutMethods, setPayoutMethods] = useState<PayoutMethod[]>([]);

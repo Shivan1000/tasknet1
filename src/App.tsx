@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Landing from './pages/Landing';
+import { getCookie } from './lib/supabase';
 import Dashboard from './pages/Dashboard';
 import TaskTracking from './pages/TaskTracking';
 import WithdrawEarnings from './pages/WithdrawEarnings';
@@ -14,7 +15,7 @@ import TermsAndConditions from './pages/TermsAndConditions';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const isAuthenticated = localStorage.getItem('user_email');
+  const isAuthenticated = localStorage.getItem('user_email') || getCookie('user_email');
   if (!isAuthenticated) {
     return <Navigate to="/welcome" replace />;
   }

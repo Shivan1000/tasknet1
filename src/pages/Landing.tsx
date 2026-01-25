@@ -1,10 +1,11 @@
 import React from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { ArrowRight, Shield, Zap, Globe, Users } from 'lucide-react';
+import { getCookie } from '../lib/supabase';
 
 const Landing = () => {
   const navigate = useNavigate();
-  const isAuthenticated = localStorage.getItem('user_email');
+  const isAuthenticated = localStorage.getItem('user_email') || getCookie('user_email');
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
