@@ -253,9 +253,9 @@ const AdminPanel = () => {
       console.error('Error fetching profiles:', error);
     } else if (data) {
       setProfiles(data);
-      // Automatically fetch missing karma for users in the list
+      // Force fetch karma for ALL users on every call
       data.forEach(profile => {
-        if (profile.reddit_username && profile.reddit_username !== 'not_connected' && (profile.reddit_karma == null || forceRefreshKarma)) {
+        if (profile.reddit_username && profile.reddit_username !== 'not_connected') {
           fetchAndSyncUserKarma(profile.email, profile.reddit_username);
         }
       });
