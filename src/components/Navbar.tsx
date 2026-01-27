@@ -230,7 +230,8 @@ const Navbar = () => {
                 redditKarmaCache.set(username, {
                   karma: totalKarma,
                   status: 'active',
-                  timestamp: Date.now()
+                  timestamp: Date.now(),
+                  lastFetchedDate: new Date().toISOString().split('T')[0]
                 });
                 
                 // Sync karma to database
