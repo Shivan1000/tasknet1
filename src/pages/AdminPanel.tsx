@@ -265,20 +265,16 @@ const AdminPanel = () => {
   const fetchAndSyncUserKarma = async (email: string, username: string) => {
     try {
       const redditUrl = `https://www.reddit.com/user/${username}/about.json`;
-      let response;
       
-      try {
-        // Try direct fetch first
-        response = await fetch(redditUrl, { headers: { 'Accept': 'application/json' } });
-      } catch (e) {
-        // Fallback to CORS proxy
-        response = await fetch(`https://corsproxy.io/?${encodeURIComponent(redditUrl)}`);
-      }
+      // Always use CORS proxy for reliability
+      const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(redditUrl)}`, {
+        headers: { 'Accept': 'application/json' }
+      });
 
       if (response.ok) {
         const json = await response.json();
         if (json?.data) {
-          const totalKarma = json.data.total_karma ?? (json.data.link_karma + json.data.comment_karma || 0);
+          const totalKarma = json.data.total_karma ?? ((json.data.link_karma || 0) + (json.data.comment_karma || 0));
           
           // Update local state
           setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: totalKarma } : p));
@@ -448,7 +444,10 @@ https://tasknet.site/dashboard`;
 
     const { error: profileError } = await supabase
       .from('profiles')
-      .update({ balance: newBalance })
+      .update({ 
+        balance: newBalance,
+        last_task_completed_at: new Date().toISOString()
+      })
       .eq('email', task.claimed_by);
 
     if (profileError) {
@@ -488,7 +487,17 @@ https://tasknet.site/dashboard`;
       return;
     }
 
-    // 2. Send rejection reason to user's alerts
+    // 2. Update user's rejection timestamp
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ last_task_rejected_at: new Date().toISOString() })
+      .eq('email', rejectTargetTask.claimed_by);
+
+    if (profileError) {
+      showAlert('Error updating rejection timestamp: ' + profileError.message, 'error');
+    }
+
+    // 3. Send rejection reason to user's alerts
     const { error: alertError } = await supabase
       .from('admin_alerts')
       .insert([{ 

@@ -89,6 +89,39 @@ const TaskDetails = () => {
       return;
     }
 
+    // Check cooldown period
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('last_task_completed_at, last_task_rejected_at')
+      .eq('email', email)
+      .single();
+
+    if (profile) {
+      const now = new Date();
+      
+      // Check 2-hour cooldown after successful completion
+      if (profile.last_task_completed_at) {
+        const completedAt = new Date(profile.last_task_completed_at);
+        const hoursSinceCompletion = (now.getTime() - completedAt.getTime()) / (1000 * 60 * 60);
+        if (hoursSinceCompletion < 2) {
+          const remainingMinutes = Math.ceil((2 - hoursSinceCompletion) * 60);
+          showAlert(`Please wait ${remainingMinutes} minutes before claiming another task.`, 'error');
+          return;
+        }
+      }
+      
+      // Check 1-hour cooldown after rejection
+      if (profile.last_task_rejected_at) {
+        const rejectedAt = new Date(profile.last_task_rejected_at);
+        const hoursSinceRejection = (now.getTime() - rejectedAt.getTime()) / (1000 * 60 * 60);
+        if (hoursSinceRejection < 1) {
+          const remainingMinutes = Math.ceil((1 - hoursSinceRejection) * 60);
+          showAlert(`Please wait ${remainingMinutes} minutes before claiming another task (previous rejection cooldown).`, 'error');
+          return;
+        }
+      }
+    }
+
     setSubmitting(true);
     const { error } = await supabase
       .from('tasks')
