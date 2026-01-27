@@ -122,52 +122,63 @@ const Navbar = () => {
 
   const fetchRedditData = async (username: string) => {
     try {
-      // Try direct Reddit API first, then fallback to CORS proxy
-      let response;
+      const redditUrl = `https://www.reddit.com/user/${username}/about.json`;
+      const proxies = [
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(redditUrl)}`,
+        `https://corsproxy.io/?${encodeURIComponent(redditUrl)}`,
+        redditUrl
+      ];
       
-      try {
-        // Try direct access first
-        response = await fetch(`https://www.reddit.com/user/${username}/about.json`, {
-          headers: {
-            'Accept': 'application/json',
+      for (const proxyUrl of proxies) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
+          
+          const response = await fetch(proxyUrl, {
+            headers: { 'Accept': 'application/json' },
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (response.status === 404) {
+            setRedditStatus('not_found');
+            break;
+          } else if (response.status === 403) {
+            setRedditStatus('suspended');
+            break;
+          } else if (response.ok) {
+            const json = await response.json();
+            
+            if (json && json.data) {
+              const userData = json.data;
+              if (userData.is_suspended === true) {
+                setRedditStatus('suspended');
+              } else {
+                setRedditStatus('active');
+                const totalKarma = userData.total_karma ?? ((userData.link_karma || 0) + (userData.comment_karma || 0));
+                setRedditKarma(totalKarma);
+                
+                // Sync karma to database
+                supabase.from('profiles')
+                  .update({ reddit_karma: totalKarma })
+                  .eq('email', userEmail)
+                  .then(({ error }) => {
+                    // Karma sync complete
+                  });
+              }
+              break;
+            }
           }
-        });
-      } catch (directError) {
-        // Fallback to CORS proxy
-        const redditUrl = `https://www.reddit.com/user/${username}/about.json`;
-        response = await fetch(`https://corsproxy.io/?${encodeURIComponent(redditUrl)}`, {
-          headers: {
-            'Accept': 'application/json',
+        } catch (proxyErr: any) {
+          if (proxyErr.name === 'AbortError') {
+            continue;
           }
-        });
+          continue;
+        }
       }
       
-      if (response.status === 404) {
-        setRedditStatus('not_found');
-      } else if (response.status === 403) {
-        setRedditStatus('suspended');
-      } else if (response.ok) {
-        const json = await response.json();
-        
-        if (json && json.data) {
-          const userData = json.data;
-          if (userData.is_suspended === true) {
-            setRedditStatus('suspended');
-          } else {
-            setRedditStatus('active');
-            const totalKarma = userData.total_karma ?? (userData.link_karma + userData.comment_karma || 0);
-            setRedditKarma(totalKarma);
-            
-            // Sync karma to database
-            supabase.from('profiles')
-              .update({ reddit_karma: totalKarma })
-              .eq('email', userEmail)
-              .then(({ error }) => {
-                // Karma sync complete
-              });
-          }
-        }
-      } else {
+      if (!redditStatus) {
         setRedditStatus('not_found');
       }
     } catch (err) {
