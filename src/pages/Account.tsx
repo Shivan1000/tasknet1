@@ -4,9 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { User, Lock, Link2, Mail, Shield, Check, X, AlertCircle, MessageSquare, LogOut } from 'lucide-react';
 import { supabase, getCookie, deleteCookie } from '../lib/supabase';
 
-// Reddit karma cache (5 minutes TTL)
-const redditKarmaCache = new Map<string, { karma: number; status: string; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+// Reddit karma cache (6 days TTL)
+const redditKarmaCache = new Map<string, { karma: number; status: string; timestamp: number; lastFetchedDate: string }>();
+const CACHE_TTL = 6 * 24 * 60 * 60 * 1000; // 6 days
 
 interface CustomAlert {
   show: boolean;
@@ -55,25 +55,33 @@ const Account = () => {
 
   const fetchRedditKarma = async (username: string) => {
     if (!username) return;
+    setFetchingReddit(true);
+    setRedditStatus(null);
     
     // Check cache first
     const cached = redditKarmaCache.get(username);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       setRedditKarma(cached.karma);
       setRedditStatus(cached.status as any);
+      setFetchingReddit(false);
       return;
     }
     
-    setFetchingReddit(true);
-    setRedditStatus(null);
-    
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    
     try {
+      // Check cache first
+      const cached = redditKarmaCache.get(username);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        setRedditKarma(cached.karma);
+        setRedditStatus(cached.status as any);
+        setFetchingReddit(false);
+        return;
+      }
+      
       const redditUrl = `https://www.reddit.com/user/${username}/about.json`;
       const oldRedditUrl = `https://old.reddit.com/user/${username}/about.json`;
       const proxies = [
+        `https://reddapi.p.rapidapi.com/api/user_info?username=${username}`,
+        `https://api.redditmetrics.com/user/${username}`,
         `https://api.allorigins.win/raw?url=${encodeURIComponent(redditUrl)}`,
         `https://corsproxy.io/?${encodeURIComponent(redditUrl)}`,
         `https://proxy.cors.sh/${redditUrl}`,
@@ -89,34 +97,82 @@ const Account = () => {
       
       for (const proxyUrl of proxies) {
         try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
+          
           const response = await fetch(proxyUrl, {
-            headers: { 'Accept': 'application/json' },
+            headers: { 'Accept': 'application/json', 'x-rapidapi-host': 'reddapi.p.rapidapi.com' },
             signal: controller.signal
           });
+          
+          clearTimeout(timeoutId);
           
           if (response.ok) {
             const json = await response.json();
             
-            if (json && json.data) {
-              const userData = json.data;
-              const totalKarma = userData.total_karma ?? ((userData.link_karma || 0) + (userData.comment_karma || 0));
-              
-              setRedditStatus('active');
-              setRedditKarma(totalKarma);
-              
-              // Cache the result
-              redditKarmaCache.set(username, {
-                karma: totalKarma,
-                status: 'active',
-                timestamp: Date.now()
-              });
-              
-              break;
+            if (json) {
+              // Handle RapidAPI response format
+              if (proxyUrl.includes('reddapi.p.rapidapi.com')) {
+                if (json.data && json.data.total_karma !== undefined) {
+                  const totalKarma = json.data.total_karma;
+                  
+                  setRedditStatus('active');
+                  setRedditKarma(totalKarma);
+                  
+                  // Cache the result
+                  redditKarmaCache.set(username, {
+                    karma: totalKarma,
+                    status: 'active',
+                    timestamp: Date.now(),
+                    lastFetchedDate: new Date().toISOString().split('T')[0]
+                  });
+                  
+                  setFetchingReddit(false);
+                  return;
+                }
+              } else if (proxyUrl.includes('api.redditmetrics.com')) {
+                // Handle RedditMetrics response format
+                if (json.karma !== undefined) {
+                  const totalKarma = json.karma;
+                  
+                  setRedditStatus('active');
+                  setRedditKarma(totalKarma);
+                  
+                  // Cache the result
+                  redditKarmaCache.set(username, {
+                    karma: totalKarma,
+                    status: 'active',
+                    timestamp: Date.now(),
+                    lastFetchedDate: new Date().toISOString().split('T')[0]
+                  });
+                  
+                  setFetchingReddit(false);
+                  return;
+                }
+              } else if (json.data) {
+                // Handle standard Reddit API response format
+                const userData = json.data;
+                const totalKarma = userData.total_karma ?? ((userData.link_karma || 0) + (userData.comment_karma || 0));
+                
+                setRedditStatus('active');
+                setRedditKarma(totalKarma);
+                
+                // Cache the result
+                redditKarmaCache.set(username, {
+                  karma: totalKarma,
+                  status: 'active',
+                  timestamp: Date.now(),
+                  lastFetchedDate: new Date().toISOString().split('T')[0]
+                });
+                
+                setFetchingReddit(false);
+                return;
+              }
             }
           }
         } catch (proxyErr: any) {
           if (proxyErr.name === 'AbortError') {
-            throw proxyErr;
+            continue;
           }
           continue;
         }
@@ -127,16 +183,12 @@ const Account = () => {
         setRedditStatus('not_found');
         setRedditKarma(null);
       }
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
-        setRedditStatus('not_found');
-        setRedditKarma(null);
-      } else {
+    } catch (err) {
+      if (redditKarma === null) {
         setRedditStatus('not_found');
         setRedditKarma(null);
       }
     } finally {
-      clearTimeout(timeout);
       setFetchingReddit(false);
     }
   };

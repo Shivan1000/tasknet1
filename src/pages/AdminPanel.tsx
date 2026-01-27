@@ -3,9 +3,9 @@ import Layout from '../components/Layout';
 import { Send, Plus, Trash2, Globe, Tag, DollarSign, Clock, Edit2, Eye, EyeOff, User, ChevronDown, Check, X, Search, AlertCircle, Shield, Lock, MessageSquare, CheckCircle2, Users, Wallet, CreditCard, ExternalLink } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
-// Reddit karma cache (5 minutes TTL)
-const redditKarmaCache = new Map<string, { karma: number; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+// Reddit karma cache (6 days TTL)
+const redditKarmaCache = new Map<string, { karma: number; timestamp: number; lastFetchedDate: string }>();
+const CACHE_TTL = 6 * 24 * 60 * 60 * 1000; // 6 days
 
 interface Task {
   id: string;
@@ -271,6 +271,7 @@ const AdminPanel = () => {
       // Check cache first
       const cached = redditKarmaCache.get(username);
       if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        // Update local state with cached value
         setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: cached.karma } : p));
         return;
       }
@@ -278,6 +279,8 @@ const AdminPanel = () => {
       const redditUrl = `https://www.reddit.com/user/${username}/about.json`;
       const oldRedditUrl = `https://old.reddit.com/user/${username}/about.json`;
       const proxies = [
+        `https://reddapi.p.rapidapi.com/api/user_info?username=${username}`,
+        `https://api.redditmetrics.com/user/${username}`,
         `https://api.allorigins.win/raw?url=${encodeURIComponent(redditUrl)}`,
         `https://corsproxy.io/?${encodeURIComponent(redditUrl)}`,
         `https://proxy.cors.sh/${redditUrl}`,
@@ -297,7 +300,7 @@ const AdminPanel = () => {
           const timeoutId = setTimeout(() => controller.abort(), 5000);
           
           const response = await fetch(proxyUrl, {
-            headers: { 'Accept': 'application/json' },
+            headers: { 'Accept': 'application/json', 'x-rapidapi-host': 'reddapi.p.rapidapi.com' },
             signal: controller.signal
           });
           
@@ -305,21 +308,64 @@ const AdminPanel = () => {
           
           if (response.ok) {
             const json = await response.json();
-            if (json?.data) {
-              const totalKarma = json.data.total_karma ?? ((json.data.link_karma || 0) + (json.data.comment_karma || 0));
-              
-              // Cache the result
-              redditKarmaCache.set(username, {
-                karma: totalKarma,
-                timestamp: Date.now()
-              });
-              
-              // Update local state
-              setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: totalKarma } : p));
-              
-              // Sync to DB
-              await supabase.from('profiles').update({ reddit_karma: totalKarma }).eq('email', email);
-              return;
+            
+            if (json) {
+              // Handle RapidAPI response format
+              if (proxyUrl.includes('reddapi.p.rapidapi.com')) {
+                if (json.data && json.data.total_karma !== undefined) {
+                  const totalKarma = json.data.total_karma;
+                  
+                  // Cache the result
+                  redditKarmaCache.set(username, {
+                    karma: totalKarma,
+                    timestamp: Date.now(),
+                    lastFetchedDate: new Date().toISOString().split('T')[0]
+                  });
+                  
+                  // Update local state
+                  setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: totalKarma } : p));
+                  
+                  // Sync to DB
+                  await supabase.from('profiles').update({ reddit_karma: totalKarma }).eq('email', email);
+                  return;
+                }
+              } else if (proxyUrl.includes('api.redditmetrics.com')) {
+                // Handle RedditMetrics response format
+                if (json.karma !== undefined) {
+                  const totalKarma = json.karma;
+                  
+                  // Cache the result
+                  redditKarmaCache.set(username, {
+                    karma: totalKarma,
+                    timestamp: Date.now(),
+                    lastFetchedDate: new Date().toISOString().split('T')[0]
+                  });
+                  
+                  // Update local state
+                  setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: totalKarma } : p));
+                  
+                  // Sync to DB
+                  await supabase.from('profiles').update({ reddit_karma: totalKarma }).eq('email', email);
+                  return;
+                }
+              } else if (json.data) {
+                // Handle standard Reddit API response format
+                const totalKarma = json.data.total_karma ?? ((json.data.link_karma || 0) + (json.data.comment_karma || 0));
+                
+                // Cache the result
+                redditKarmaCache.set(username, {
+                  karma: totalKarma,
+                  timestamp: Date.now(),
+                  lastFetchedDate: new Date().toISOString().split('T')[0]
+                });
+                
+                // Update local state
+                setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: totalKarma } : p));
+                
+                // Sync to DB
+                await supabase.from('profiles').update({ reddit_karma: totalKarma }).eq('email', email);
+                return;
+              }
             }
           }
         } catch (proxyErr) {
