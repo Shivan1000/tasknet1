@@ -266,30 +266,48 @@ const AdminPanel = () => {
     try {
       const redditUrl = `https://www.reddit.com/user/${username}/about.json`;
       
-      // Always use CORS proxy for reliability
-      const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(redditUrl)}`, {
-        headers: { 'Accept': 'application/json' }
-      });
-
-      if (response.ok) {
-        const json = await response.json();
-        if (json?.data) {
-          const totalKarma = json.data.total_karma ?? ((json.data.link_karma || 0) + (json.data.comment_karma || 0));
+      // Try multiple proxy options with timeout
+      const proxies = [
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(redditUrl)}`,
+        `https://corsproxy.io/?${encodeURIComponent(redditUrl)}`,
+        redditUrl // Direct as last resort
+      ];
+      
+      for (const proxyUrl of proxies) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
           
-          // Update local state
-          setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: totalKarma } : p));
+          const response = await fetch(proxyUrl, {
+            headers: { 'Accept': 'application/json' },
+            signal: controller.signal
+          });
           
-          // Sync to DB
-          await supabase.from('profiles').update({ reddit_karma: totalKarma }).eq('email', email);
-          return;
+          clearTimeout(timeoutId);
+          
+          if (response.ok) {
+            const json = await response.json();
+            if (json?.data) {
+              const totalKarma = json.data.total_karma ?? ((json.data.link_karma || 0) + (json.data.comment_karma || 0));
+              
+              // Update local state
+              setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: totalKarma } : p));
+              
+              // Sync to DB
+              await supabase.from('profiles').update({ reddit_karma: totalKarma }).eq('email', email);
+              return;
+            }
+          }
+        } catch (proxyErr) {
+          // Try next proxy
+          continue;
         }
       }
       
-      // If we reach here, it failed or data was missing
-      setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: 0 } : p));
+      // All proxies failed - keep existing karma or set to null
+      // Don't overwrite with 0
     } catch (err) {
       console.error('Error fetching karma for', username, err);
-      setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: 0 } : p));
     }
   };
 
