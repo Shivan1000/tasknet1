@@ -4,6 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { User, Lock, Link2, Mail, Shield, Check, X, AlertCircle, MessageSquare, LogOut } from 'lucide-react';
 import { supabase, getCookie, deleteCookie } from '../lib/supabase';
 
+// Reddit karma cache (5 minutes TTL)
+const redditKarmaCache = new Map<string, { karma: number; status: string; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 interface CustomAlert {
   show: boolean;
   message: string;
@@ -51,72 +55,90 @@ const Account = () => {
 
   const fetchRedditKarma = async (username: string) => {
     if (!username) return;
+    
+    // Check cache first
+    const cached = redditKarmaCache.get(username);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      setRedditKarma(cached.karma);
+      setRedditStatus(cached.status as any);
+      return;
+    }
+    
     setFetchingReddit(true);
     setRedditStatus(null);
+    
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    
     try {
-      // Try direct Reddit API first, then fallback to CORS proxy
-      let response;
-      let json;
+      const redditUrl = `https://www.reddit.com/user/${username}/about.json`;
+      const oldRedditUrl = `https://old.reddit.com/user/${username}/about.json`;
+      const proxies = [
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(redditUrl)}`,
+        `https://corsproxy.io/?${encodeURIComponent(redditUrl)}`,
+        `https://proxy.cors.sh/${redditUrl}`,
+        `https://cors-proxy.htmldriven.com/?url=${encodeURIComponent(redditUrl)}`,
+        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(redditUrl)}`,
+        `https://thingproxy.freeboard.io/fetch/${redditUrl}`,
+        `https://yacdn.org/proxy/${redditUrl}`,
+        `https://cors.bridged.cc/${redditUrl}`,
+        `https://cors-proxy.fringe.zone/${redditUrl}`,
+        oldRedditUrl,
+        redditUrl
+      ];
       
-      try {
-        // Try direct access first
-        response = await fetch(`https://www.reddit.com/user/${username}/about.json`, {
-          headers: {
-            'Accept': 'application/json',
+      for (const proxyUrl of proxies) {
+        try {
+          const response = await fetch(proxyUrl, {
+            headers: { 'Accept': 'application/json' },
+            signal: controller.signal
+          });
+          
+          if (response.ok) {
+            const json = await response.json();
+            
+            if (json && json.data) {
+              const userData = json.data;
+              const totalKarma = userData.total_karma ?? ((userData.link_karma || 0) + (userData.comment_karma || 0));
+              
+              setRedditStatus('active');
+              setRedditKarma(totalKarma);
+              
+              // Cache the result
+              redditKarmaCache.set(username, {
+                karma: totalKarma,
+                status: 'active',
+                timestamp: Date.now()
+              });
+              
+              break;
+            }
           }
-        });
-      } catch (directError) {
-        // Fallback to CORS proxy
-        const redditUrl = `https://www.reddit.com/user/${username}/about.json`;
-        response = await fetch(`https://corsproxy.io/?${encodeURIComponent(redditUrl)}`, {
-          headers: {
-            'Accept': 'application/json',
+        } catch (proxyErr: any) {
+          if (proxyErr.name === 'AbortError') {
+            throw proxyErr;
           }
-        });
+          continue;
+        }
       }
       
-      if (response.status === 404) {
+      // If we get here and status is still null, all proxies failed
+      if (redditStatus === null) {
         setRedditStatus('not_found');
         setRedditKarma(null);
-      } else if (response.status === 403) {
-        setRedditStatus('suspended');
+      }
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        setRedditStatus('not_found');
         setRedditKarma(null);
-      } else if (response.ok) {
-        json = await response.json();
-        
-        if (json && json.data) {
-          const userData = json.data;
-          
-          // Check if account is suspended
-          if (userData.is_suspended === true) {
-            setRedditStatus('suspended');
-            setRedditKarma(null);
-          } else if (userData.subreddit && userData.subreddit.subreddit_type === 'user') {
-            // Valid user account
-            setRedditStatus('active');
-            const totalKarma = userData.total_karma ?? (userData.link_karma + userData.comment_karma || 0);
-            setRedditKarma(totalKarma);
-          } else {
-            setRedditStatus('active');
-            const totalKarma = userData.total_karma ?? (userData.link_karma + userData.comment_karma || 0);
-            setRedditKarma(totalKarma);
-          }
-        } else if (json && json.error === 404) {
-          setRedditStatus('not_found');
-          setRedditKarma(null);
-        } else {
-          setRedditStatus('not_found');
-          setRedditKarma(null);
-        }
       } else {
         setRedditStatus('not_found');
         setRedditKarma(null);
       }
-    } catch (err) {
-      setRedditStatus('not_found');
-      setRedditKarma(null);
+    } finally {
+      clearTimeout(timeout);
+      setFetchingReddit(false);
     }
-    setFetchingReddit(false);
   };
 
   const fetchProfile = async () => {

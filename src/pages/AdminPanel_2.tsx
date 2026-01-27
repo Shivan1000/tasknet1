@@ -3,6 +3,10 @@ import Layout from '../components/Layout';
 import { Send, Plus, Trash2, Globe, Tag, DollarSign, Clock, Edit2, Eye, EyeOff, User, ChevronDown, Check, X, Search, AlertCircle, Shield, Lock, MessageSquare, CheckCircle2, Users, Wallet, CreditCard, ExternalLink } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
+// Reddit karma cache (5 minutes TTL)
+const redditKarmaCache = new Map<string, { karma: number; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 interface Task {
   id: string;
   task_id_display: string;
@@ -263,10 +267,26 @@ const AdminPanel = () => {
 
   const fetchAndSyncUserKarma = async (email: string, username: string) => {
     try {
+      // Check cache first
+      const cached = redditKarmaCache.get(username);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: cached.karma } : p));
+        return;
+      }
+      
       const redditUrl = `https://www.reddit.com/user/${username}/about.json`;
+      const oldRedditUrl = `https://old.reddit.com/user/${username}/about.json`;
       const proxies = [
         `https://api.allorigins.win/raw?url=${encodeURIComponent(redditUrl)}`,
         `https://corsproxy.io/?${encodeURIComponent(redditUrl)}`,
+        `https://proxy.cors.sh/${redditUrl}`,
+        `https://cors-proxy.htmldriven.com/?url=${encodeURIComponent(redditUrl)}`,
+        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(redditUrl)}`,
+        `https://thingproxy.freeboard.io/fetch/${redditUrl}`,
+        `https://yacdn.org/proxy/${redditUrl}`,
+        `https://cors.bridged.cc/${redditUrl}`,
+        `https://cors-proxy.fringe.zone/${redditUrl}`,
+        oldRedditUrl,
         redditUrl
       ];
       
@@ -287,6 +307,12 @@ const AdminPanel = () => {
             if (json?.data) {
               const totalKarma = json.data.total_karma ?? ((json.data.link_karma || 0) + (json.data.comment_karma || 0));
               
+              // Cache the result
+              redditKarmaCache.set(username, {
+                karma: totalKarma,
+                timestamp: Date.now()
+              });
+              
               // Update local state
               setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: totalKarma } : p));
               
@@ -299,8 +325,6 @@ const AdminPanel = () => {
           continue;
         }
       }
-      
-      // All proxies failed - keep existing karma
     } catch (err) {
       console.error('Error fetching karma for', username, err);
     }

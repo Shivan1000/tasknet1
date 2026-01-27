@@ -3,6 +3,10 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { Home, ListTodo, WalletCards, Bell, Menu, X, LogOut, Settings, Wallet } from 'lucide-react';
 import { supabase, deleteCookie, getCookie } from '../lib/supabase';
 
+// Reddit karma cache (5 minutes TTL)
+const redditKarmaCache = new Map<string, { karma: number; status: string; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 const Navbar = () => {
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -122,10 +126,27 @@ const Navbar = () => {
 
   const fetchRedditData = async (username: string) => {
     try {
+      // Check cache first
+      const cached = redditKarmaCache.get(username);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        setRedditKarma(cached.karma);
+        setRedditStatus(cached.status as any);
+        return;
+      }
+      
       const redditUrl = `https://www.reddit.com/user/${username}/about.json`;
+      const oldRedditUrl = `https://old.reddit.com/user/${username}/about.json`;
       const proxies = [
         `https://api.allorigins.win/raw?url=${encodeURIComponent(redditUrl)}`,
         `https://corsproxy.io/?${encodeURIComponent(redditUrl)}`,
+        `https://proxy.cors.sh/${redditUrl}`,
+        `https://cors-proxy.htmldriven.com/?url=${encodeURIComponent(redditUrl)}`,
+        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(redditUrl)}`,
+        `https://thingproxy.freeboard.io/fetch/${redditUrl}`,
+        `https://yacdn.org/proxy/${redditUrl}`,
+        `https://cors.bridged.cc/${redditUrl}`,
+        `https://cors-proxy.fringe.zone/${redditUrl}`,
+        oldRedditUrl,
         redditUrl
       ];
       
@@ -141,29 +162,27 @@ const Navbar = () => {
           
           clearTimeout(timeoutId);
           
-          if (response.status === 404) {
-            setRedditStatus('not_found');
-            break;
-          } else if (response.status === 403) {
-            setRedditStatus('suspended');
-            break;
-          } else if (response.ok) {
+          if (response.ok) {
             const json = await response.json();
             
             if (json && json.data) {
               const userData = json.data;
-              if (userData.is_suspended === true) {
-                setRedditStatus('suspended');
-              } else {
-                setRedditStatus('active');
-                const totalKarma = userData.total_karma ?? ((userData.link_karma || 0) + (userData.comment_karma || 0));
-                setRedditKarma(totalKarma);
-                
-                // Sync karma to database
-                supabase.from('profiles')
-                  .update({ reddit_karma: totalKarma })
-                  .eq('email', userEmail);
-              }
+              const totalKarma = userData.total_karma ?? ((userData.link_karma || 0) + (userData.comment_karma || 0));
+              
+              setRedditStatus('active');
+              setRedditKarma(totalKarma);
+              
+              // Cache the result
+              redditKarmaCache.set(username, {
+                karma: totalKarma,
+                status: 'active',
+                timestamp: Date.now()
+              });
+              
+              // Sync karma to database
+              supabase.from('profiles')
+                .update({ reddit_karma: totalKarma })
+                .eq('email', userEmail);
               break;
             }
           }
