@@ -53,70 +53,75 @@ const Account = () => {
     if (!username) return;
     setFetchingReddit(true);
     setRedditStatus(null);
+    
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    
     try {
-      // Try direct Reddit API first, then fallback to CORS proxy
-      let response;
-      let json;
+      const redditUrl = `https://www.reddit.com/user/${username}/about.json`;
+      const proxies = [
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(redditUrl)}`,
+        `https://corsproxy.io/?${encodeURIComponent(redditUrl)}`,
+        redditUrl
+      ];
       
-      try {
-        // Try direct access first
-        response = await fetch(`https://www.reddit.com/user/${username}/about.json`, {
-          headers: {
-            'Accept': 'application/json',
-          }
-        });
-      } catch (directError) {
-        // Fallback to CORS proxy
-        const redditUrl = `https://www.reddit.com/user/${username}/about.json`;
-        response = await fetch(`https://corsproxy.io/?${encodeURIComponent(redditUrl)}`, {
-          headers: {
-            'Accept': 'application/json',
-          }
-        });
-      }
-      
-      if (response.status === 404) {
-        setRedditStatus('not_found');
-        setRedditKarma(null);
-      } else if (response.status === 403) {
-        setRedditStatus('suspended');
-        setRedditKarma(null);
-      } else if (response.ok) {
-        json = await response.json();
-        
-        if (json && json.data) {
-          const userData = json.data;
+      for (const proxyUrl of proxies) {
+        try {
+          const response = await fetch(proxyUrl, {
+            headers: { 'Accept': 'application/json' },
+            signal: controller.signal
+          });
           
-          // Check if account is suspended
-          if (userData.is_suspended === true) {
+          if (response.status === 404) {
+            setRedditStatus('not_found');
+            setRedditKarma(null);
+            break;
+          } else if (response.status === 403) {
             setRedditStatus('suspended');
             setRedditKarma(null);
-          } else if (userData.subreddit && userData.subreddit.subreddit_type === 'user') {
-            // Valid user account
-            setRedditStatus('active');
-            const totalKarma = userData.total_karma ?? (userData.link_karma + userData.comment_karma || 0);
-            setRedditKarma(totalKarma);
-          } else {
-            setRedditStatus('active');
-            const totalKarma = userData.total_karma ?? (userData.link_karma + userData.comment_karma || 0);
-            setRedditKarma(totalKarma);
+            break;
+          } else if (response.ok) {
+            const json = await response.json();
+            
+            if (json && json.data) {
+              const userData = json.data;
+              
+              if (userData.is_suspended === true) {
+                setRedditStatus('suspended');
+                setRedditKarma(null);
+              } else {
+                setRedditStatus('active');
+                const totalKarma = userData.total_karma ?? ((userData.link_karma || 0) + (userData.comment_karma || 0));
+                setRedditKarma(totalKarma);
+              }
+              break;
+            }
           }
-        } else if (json && json.error === 404) {
-          setRedditStatus('not_found');
-          setRedditKarma(null);
-        } else {
-          setRedditStatus('not_found');
-          setRedditKarma(null);
+        } catch (proxyErr: any) {
+          if (proxyErr.name === 'AbortError') {
+            throw proxyErr;
+          }
+          continue;
         }
+      }
+      
+      // If we get here and status is still null, all proxies failed
+      if (redditStatus === null) {
+        setRedditStatus('not_found');
+        setRedditKarma(null);
+      }
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        setRedditStatus('not_found');
+        setRedditKarma(null);
       } else {
         setRedditStatus('not_found');
         setRedditKarma(null);
       }
-    } catch (err) {
-      setRedditStatus('not_found');
-      setRedditKarma(null);
+    } finally {
+      clearTimeout(timeout);
+      setFetchingReddit(false);
     }
-    setFetchingReddit(false);
   };
 
   const fetchProfile = async () => {
