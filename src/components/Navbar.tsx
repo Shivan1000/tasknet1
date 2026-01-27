@@ -162,10 +162,7 @@ const Navbar = () => {
                 // Sync karma to database
                 supabase.from('profiles')
                   .update({ reddit_karma: totalKarma })
-                  .eq('email', userEmail)
-                  .then(({ error }) => {
-                    // Karma sync complete
-                  });
+                  .eq('email', userEmail);
               }
               break;
             }
