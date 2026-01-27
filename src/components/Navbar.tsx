@@ -194,11 +194,16 @@ const Navbar = () => {
         }
       }
       
-      if (!redditStatus) {
+      // Don't set to not_found if we already have a valid karma value
+      const currentKarma = redditKarma;
+      if (!redditStatus && currentKarma === null) {
         setRedditStatus('not_found');
       }
     } catch (err) {
-      setRedditStatus('not_found');
+      // Only set to not_found if we don't have existing data
+      if (redditKarma === null) {
+        setRedditStatus('not_found');
+      }
     }
   };
 

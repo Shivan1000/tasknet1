@@ -123,7 +123,7 @@ const Account = () => {
       }
       
       // If we get here and status is still null, all proxies failed
-      if (redditStatus === null) {
+      if (redditStatus === null && redditKarma === null) {
         setRedditStatus('not_found');
         setRedditKarma(null);
       }

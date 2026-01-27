@@ -326,6 +326,8 @@ const AdminPanel = () => {
           continue;
         }
       }
+      // All proxies failed - keep existing karma or set to null
+      // Don't overwrite with 0 if we have existing data
     } catch (err) {
       console.error('Error fetching karma for', username, err);
     }
