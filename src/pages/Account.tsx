@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { useNavigate } from 'react-router-dom';
 import { User, Lock, Link2, Mail, Shield, Check, X, AlertCircle, MessageSquare, LogOut } from 'lucide-react';
-import { supabase, getCookie } from '../lib/supabase';
+import { supabase, getCookie, deleteCookie } from '../lib/supabase';
 
 interface CustomAlert {
   show: boolean;
@@ -189,6 +189,7 @@ const Account = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('user_email');
+    deleteCookie('user_email');
     navigate('/welcome');
   };
 
