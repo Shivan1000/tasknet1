@@ -172,12 +172,7 @@ const RedditLogin = () => {
       <header className="w-full px-6 py-5 flex items-center">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-[#FF4500] rounded-full flex items-center justify-center">
-              <svg className="w-5 h-5" viewBox="0 0 20 20" fill="white" xmlns="http://www.w3.org/2000/svg">
-                <path d="M16 10c0-.4-.3-.7-.7-.7h-.1c-.5-.4-1.1-.6-1.9-.6l.4-2 1.3.3c.1.3.3.5.6.5.3 0 .6-.3.6-.6s-.3-.6-.6-.6c-.3 0-.5.1-.6.4l-1.5-.3c-.1 0-.2.1-.2.1l-.5 2.2c-.7.1-1.4.3-1.9.6h-.1c-.4 0-.7.3-.7.7s.3.7.7.7h.1c.1.3.2.6.3.8-.3.2-.5.5-.5.9 0 .6.4 1.1 1.1 1.1.3 0 .5-.1.7-.3.5.2 1.2.4 1.9.4s1.4-.1 1.9-.4c.2.2.5.3.7.3.6 0 1.1-.5 1.1-1.1 0-.4-.2-.7-.5-.9.1-.3.2-.6.3-.8h.1c.4 0 .7-.3.7-.7zM8.2 11c-.3 0-.6-.3-.6-.6s.3-.6.6-.6.6.3.6.6-.3.6-.6.6zm4.1 1.9c-.7.6-2.2.6-3 0-.1-.1-.1-.1-.1-.2s.1-.1.2-.1c.6.5 2 .5 2.6 0 .1 0 .1 0 .2.1 0 .1 0 .1 0 .2zm.1-1.3c-.3 0-.6-.3-.6-.6s.3-.6.6-.6.6.3.6.6-.3.6-.6.6z"/>
-              </svg>
-            </div>
-            <span className="text-white text-2xl font-semibold tracking-tight">reddit</span>
+            <span className="text-[#FF4500] text-2xl font-bold tracking-tight">REDDIT</span>
           </div>
         </div>
       </header>
