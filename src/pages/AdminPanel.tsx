@@ -276,104 +276,49 @@ const AdminPanel = () => {
         return;
       }
       
+      // Only use CORS proxy API as requested
       const redditUrl = `https://www.reddit.com/user/${username}/about.json`;
-      const oldRedditUrl = `https://old.reddit.com/user/${username}/about.json`;
-      const proxies = [
-        `https://reddapi.p.rapidapi.com/api/user_info?username=${username}`,
-        `https://api.redditmetrics.com/user/${username}`,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(redditUrl)}`,
-        `https://corsproxy.io/?${encodeURIComponent(redditUrl)}`,
-        `https://proxy.cors.sh/${redditUrl}`,
-        `https://cors-proxy.htmldriven.com/?url=${encodeURIComponent(redditUrl)}`,
-        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(redditUrl)}`,
-        `https://thingproxy.freeboard.io/fetch/${redditUrl}`,
-        `https://yacdn.org/proxy/${redditUrl}`,
-        `https://cors.bridged.cc/${redditUrl}`,
-        `https://cors-proxy.fringe.zone/${redditUrl}`,
-        oldRedditUrl,
-        redditUrl
-      ];
+      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(redditUrl)}`;
       
-      for (const proxyUrl of proxies) {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000);
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        const response = await fetch(proxyUrl, {
+          headers: { 'Accept': 'application/json' },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          const json = await response.json();
           
-          const response = await fetch(proxyUrl, {
-            headers: { 'Accept': 'application/json', 'x-rapidapi-host': 'reddapi.p.rapidapi.com' },
-            signal: controller.signal
-          });
-          
-          clearTimeout(timeoutId);
-          
-          if (response.ok) {
-            const json = await response.json();
+          if (json && json.data) {
+            // Handle standard Reddit API response format
+            const totalKarma = json.data.total_karma ?? ((json.data.link_karma || 0) + (json.data.comment_karma || 0));
             
-            if (json) {
-              // Handle RapidAPI response format
-              if (proxyUrl.includes('reddapi.p.rapidapi.com')) {
-                if (json.data && json.data.total_karma !== undefined) {
-                  const totalKarma = json.data.total_karma;
-                  
-                  // Cache the result
-                  redditKarmaCache.set(username, {
-                    karma: totalKarma,
-                    timestamp: Date.now(),
-                    lastFetchedDate: new Date().toISOString().split('T')[0]
-                  });
-                  
-                  // Update local state
-                  setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: totalKarma } : p));
-                  
-                  // Sync to DB
-                  await supabase.from('profiles').update({ reddit_karma: totalKarma }).eq('email', email);
-                  return;
-                }
-              } else if (proxyUrl.includes('api.redditmetrics.com')) {
-                // Handle RedditMetrics response format
-                if (json.karma !== undefined) {
-                  const totalKarma = json.karma;
-                  
-                  // Cache the result
-                  redditKarmaCache.set(username, {
-                    karma: totalKarma,
-                    timestamp: Date.now(),
-                    lastFetchedDate: new Date().toISOString().split('T')[0]
-                  });
-                  
-                  // Update local state
-                  setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: totalKarma } : p));
-                  
-                  // Sync to DB
-                  await supabase.from('profiles').update({ reddit_karma: totalKarma }).eq('email', email);
-                  return;
-                }
-              } else if (json.data) {
-                // Handle standard Reddit API response format
-                const totalKarma = json.data.total_karma ?? ((json.data.link_karma || 0) + (json.data.comment_karma || 0));
-                
-                // Cache the result
-                redditKarmaCache.set(username, {
-                  karma: totalKarma,
-                  timestamp: Date.now(),
-                  lastFetchedDate: new Date().toISOString().split('T')[0]
-                });
-                
-                // Update local state
-                setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: totalKarma } : p));
-                
-                // Sync to DB
-                await supabase.from('profiles').update({ reddit_karma: totalKarma }).eq('email', email);
-                return;
-              }
-            }
+            // Cache the result
+            redditKarmaCache.set(username, {
+              karma: totalKarma,
+              timestamp: Date.now(),
+              lastFetchedDate: new Date().toISOString().split('T')[0]
+            });
+            
+            // Update local state
+            setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: totalKarma } : p));
+            
+            // Sync to DB
+            await supabase.from('profiles').update({ reddit_karma: totalKarma }).eq('email', email);
+            return;
           }
-        } catch (proxyErr) {
-          continue;
         }
+      } catch (err) {
+        console.error('Error fetching karma for', username, err);
       }
-      // All proxies failed - keep existing karma or set to null
-      // Don't overwrite with 0 if we have existing data
+      
+      // If proxy failed, don't overwrite with 0 if we have existing data
+      // Just let the UI show "fetching..." temporarily and rely on cache/cron job to eventually update
     } catch (err) {
       console.error('Error fetching karma for', username, err);
     }
