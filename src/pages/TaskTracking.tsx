@@ -52,12 +52,16 @@ const TaskTracking = () => {
     setLoading(true);
     const userEmail = getCookie('user_email') || localStorage.getItem('user_email') || 'Guest';
     
-    // Fetch tasks where is_hidden is false
-    // We will filter them client-side for the tabs
+    // Fetch tasks that are:
+    // 1. Not hidden AND
+    // 2. Either public (assigned_to = 'All') OR assigned to the current user
+    // 3. AND (available OR claimed/submitted/verified by the current user)
     const { data, error } = await supabase
       .from('tasks')
       .select('*')
       .eq('is_hidden', false)
+      .or(`assigned_to.eq.All,assigned_to.eq.${userEmail}`)
+      .or(`status.eq.available,claimed_by.eq.${userEmail}`)
       .order('created_at', { ascending: false });
     
     if (error) {
@@ -74,6 +78,10 @@ const TaskTracking = () => {
                          task.category.toLowerCase().includes(searchQuery.toLowerCase());
     
     if (!matchesSearch) return false;
+
+    // Privacy check: Only show the task if it's public or assigned to the current user
+    const isTaskVisible = task.assigned_to === 'All' || task.assigned_to === userEmail;
+    if (!isTaskVisible) return false;
 
     if (activeTab === 'All Tasks') {
       // Show available tasks + tasks claimed/submitted/verified by THIS user

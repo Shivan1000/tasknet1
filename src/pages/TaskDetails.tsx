@@ -57,13 +57,24 @@ const TaskDetails = () => {
   }, [id]);
 
   const fetchTask = async () => {
+    const email = getCookie('user_email') || localStorage.getItem('user_email');
     const { data, error } = await supabase
       .from('tasks')
       .select('*')
       .eq('id', id)
       .single();
     
-    if (data) setTask(data);
+    if (data) {
+      // Privacy check: Only allow access if task is public or assigned to the current user
+      if (data.assigned_to === 'All' || data.assigned_to === email) {
+        setTask(data);
+      } else {
+        // Task is private and not assigned to this user
+        setTask(null);
+        setLoading(false);
+        return;
+      }
+    }
     setLoading(false);
   };
 
@@ -123,17 +134,48 @@ const TaskDetails = () => {
     }
 
     setSubmitting(true);
-    const { error } = await supabase
+
+    // Use a transaction-like approach: First check if the task is available and unclaimed,
+    // then atomically update it if it's still available
+    const { data: currentTask, error: fetchError } = await supabase
+      .from('tasks')
+      .select('status, claimed_by')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      showAlert('Error fetching task: ' + fetchError.message, 'error');
+      setSubmitting(false);
+      return;
+    }
+
+    // Check if the task is already claimed by someone else
+    if (currentTask.status !== 'available' || (currentTask.claimed_by && currentTask.claimed_by !== email)) {
+      showAlert('This task is no longer available or has already been claimed by another user.', 'error');
+      setSubmitting(false);
+      // Refresh the task to get the latest status
+      fetchTask();
+      return;
+    }
+
+    // If the task is available and not claimed by someone else, proceed with claiming
+    const { error: updateError } = await supabase
       .from('tasks')
       .update({ 
         status: 'claimed', 
         claimed_by: email 
       })
       .eq('id', id)
-      .eq('status', 'available');
+      .eq('status', 'available')  // Extra condition to ensure it's still available
+      .eq('claimed_by', currentTask.claimed_by || null); // Ensure no one else claimed it during the fetch
 
-    if (error) {
-      showAlert('Error claiming task: ' + error.message, 'error');
+    if (updateError) {
+      // This might happen if the task was claimed by someone else right before this update
+      if (updateError.message && updateError.message.toLowerCase().includes('no rows')) {
+        showAlert('Task has just been claimed by another user. Please refresh and try again.', 'error');
+      } else {
+        showAlert('Error claiming task: ' + updateError.message, 'error');
+      }
     } else {
       showAlert('Task claimed! You can now start working.', 'success');
       fetchTask();
