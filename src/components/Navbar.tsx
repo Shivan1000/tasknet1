@@ -140,114 +140,49 @@ const Navbar = () => {
         return;
       }
       
+      // Only use CORS proxy API as requested
       const redditUrl = `https://www.reddit.com/user/${username}/about.json`;
-      const oldRedditUrl = `https://old.reddit.com/user/${username}/about.json`;
-      const proxies = [
-        `https://reddapi.p.rapidapi.com/api/user_info?username=${username}`,
-        `https://api.redditmetrics.com/user/${username}`,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(redditUrl)}`,
-        `https://corsproxy.io/?${encodeURIComponent(redditUrl)}`,
-        `https://proxy.cors.sh/${redditUrl}`,
-        `https://cors-proxy.htmldriven.com/?url=${encodeURIComponent(redditUrl)}`,
-        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(redditUrl)}`,
-        `https://thingproxy.freeboard.io/fetch/${redditUrl}`,
-        `https://yacdn.org/proxy/${redditUrl}`,
-        `https://cors.bridged.cc/${redditUrl}`,
-        `https://cors-proxy.fringe.zone/${redditUrl}`,
-        oldRedditUrl,
-        redditUrl
-      ];
+      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(redditUrl)}`;
       
-      for (const proxyUrl of proxies) {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000);
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        const response = await fetch(proxyUrl, {
+          headers: { 'Accept': 'application/json' },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          const json = await response.json();
           
-          const response = await fetch(proxyUrl, {
-            headers: { 'Accept': 'application/json', 'x-rapidapi-host': 'reddapi.p.rapidapi.com' },
-            signal: controller.signal
-          });
-          
-          clearTimeout(timeoutId);
-          
-          if (response.ok) {
-            const json = await response.json();
+          if (json && json.data) {
+            // Handle standard Reddit API response format
+            const userData = json.data;
+            const totalKarma = userData.total_karma ?? ((userData.link_karma || 0) + (userData.comment_karma || 0));
             
-            if (json) {
-              // Handle RapidAPI response format
-              if (proxyUrl.includes('reddapi.p.rapidapi.com')) {
-                if (json.data && json.data.total_karma !== undefined) {
-                  const totalKarma = json.data.total_karma;
-                  
-                  setRedditStatus('active');
-                  setRedditKarma(totalKarma);
-                  
-                  // Cache the result
-                  redditKarmaCache.set(username, {
-                    karma: totalKarma,
-                    status: 'active',
-                    timestamp: Date.now(),
-                    lastFetchedDate: new Date().toISOString().split('T')[0]
-                  });
-                  
-                  // Sync karma to database
-                  supabase.from('profiles')
-                    .update({ reddit_karma: totalKarma })
-                    .eq('email', userEmail);
-                  break;
-                }
-              } else if (proxyUrl.includes('api.redditmetrics.com')) {
-                // Handle RedditMetrics response format
-                if (json.karma !== undefined) {
-                  const totalKarma = json.karma;
-                  
-                  setRedditStatus('active');
-                  setRedditKarma(totalKarma);
-                  
-                  // Cache the result
-                  redditKarmaCache.set(username, {
-                    karma: totalKarma,
-                    status: 'active',
-                    timestamp: Date.now(),
-                    lastFetchedDate: new Date().toISOString().split('T')[0]
-                  });
-                  
-                  // Sync karma to database
-                  supabase.from('profiles')
-                    .update({ reddit_karma: totalKarma })
-                    .eq('email', userEmail);
-                  break;
-                }
-              } else if (json.data) {
-                // Handle standard Reddit API response format
-                const userData = json.data;
-                const totalKarma = userData.total_karma ?? ((userData.link_karma || 0) + (userData.comment_karma || 0));
-                
-                setRedditStatus('active');
-                setRedditKarma(totalKarma);
-                
-                // Cache the result
-                redditKarmaCache.set(username, {
-                  karma: totalKarma,
-                  status: 'active',
-                  timestamp: Date.now(),
-                  lastFetchedDate: new Date().toISOString().split('T')[0]
-                });
-                
-                // Sync karma to database
-                supabase.from('profiles')
-                  .update({ reddit_karma: totalKarma })
-                  .eq('email', userEmail);
-                break;
-              }
-            }
+            setRedditStatus('active');
+            setRedditKarma(totalKarma);
+            
+            // Cache the result
+            redditKarmaCache.set(username, {
+              karma: totalKarma,
+              status: 'active',
+              timestamp: Date.now(),
+              lastFetchedDate: new Date().toISOString().split('T')[0]
+            });
+            
+            // Sync karma to database
+            supabase.from('profiles')
+              .update({ reddit_karma: totalKarma })
+              .eq('email', userEmail);
+            return;
           }
-        } catch (proxyErr: any) {
-          if (proxyErr.name === 'AbortError') {
-            continue;
-          }
-          continue;
         }
+      } catch (err) {
+        console.error('Error fetching karma for', username, err);
       }
       
       // Don't set to not_found if we already have a valid karma value
@@ -310,26 +245,27 @@ const Navbar = () => {
                   <span className="transition-transform group-hover:scale-110">{item.icon}</span>
                   <span className="font-bold text-sm">{item.label}</span>
                 </NavLink>
-
-                {item.label === 'Payouts' && profileData?.reddit_username && (
-                  <div className="flex flex-col ml-2 pl-4 border-l border-white/10 select-none animate-in fade-in slide-in-from-left-2 duration-500">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-black text-white/90 tracking-tight">u/{profileData.reddit_username}</span>
-                      <span className="text-gray-700 text-[10px]">•</span>
-                      <span className="text-[10px] font-black text-blue-400 tracking-tighter">
-                        {redditKarma !== null ? `${redditKarma.toLocaleString()} KARMA` : '---'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <div className={`w-1 h-1 rounded-full ${redditStatus === 'active' ? 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'bg-red-500'}`}></div>
-                      <span className={`text-[8px] font-black uppercase tracking-widest ${redditStatus === 'active' ? 'text-emerald-500' : 'text-red-500'}`}>
-                        {redditStatus || 'checking...'}
-                      </span>
-                    </div>
-                  </div>
-                )}
               </React.Fragment>
             ))}
+            
+            {/* Reddit Karma Display - Always Visible */}
+            {profileData?.reddit_username && (
+              <div className="flex flex-col ml-2 pl-4 border-l border-white/10 select-none animate-in fade-in slide-in-from-left-2 duration-500">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-black text-white/90 tracking-tight">u/{profileData.reddit_username}</span>
+                  <span className="text-gray-700 text-[10px]">•</span>
+                  <span className="text-[10px] font-black text-blue-400 tracking-tighter">
+                    {redditKarma !== null ? `${redditKarma.toLocaleString()} KARMA` : '---'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <div className={`w-1 h-1 rounded-full ${redditStatus === 'active' ? 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'bg-red-500'}`}></div>
+                  <span className={`text-[8px] font-black uppercase tracking-widest ${redditStatus === 'active' ? 'text-emerald-500' : 'text-red-500'}`}>
+                    {redditStatus || 'checking...'}
+                  </span>
+                </div>
+              </div>
+            )}
           </nav>
         </div>
 
