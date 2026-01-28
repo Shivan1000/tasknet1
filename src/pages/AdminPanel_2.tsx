@@ -286,26 +286,84 @@ const AdminPanel = () => {
   };
 
   const sendDiscordNotification = async (task: any) => {
-    // Only send notification if it's for Everyone
-    if (task.assigned_to !== 'All') return;
-
     const webhookUrl = 'https://discord.com/api/webhooks/1463922549120434186/4juUa6WRV4dCkAjfYv35DruT5VRS8AXT8TazwOCkbVGM1yBXnUP6hQHbdnjUqxGO9Dwp';
     
-    const message = `:rocket: NEW TASK ALERT
+    if (task.assigned_to === 'All') {
+      // Public task - send general notification without ping
+      const message = `:rocket: NEW TASK ALERT
 
 A new task has been published.
-<@&1464974222559281210>
 :link: Claim it here:
 https://tasknet.site/dashboard`;
 
-    try {
-      await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: message })
-      });
-    } catch (err) {
-      console.error('Error sending Discord notification:', err);
+      try {
+        await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: message })
+        });
+      } catch (err) {
+        console.error('Error sending Discord notification:', err);
+      }
+    } else {
+      // Private task - ping specific user if they have Discord linked
+      try {
+        // Get user's Discord ID from profiles
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('discord_username')
+          .eq('email', task.assigned_to)
+          .single();
+        
+        if (profile && profile.discord_username) {
+          // Try to extract Discord ID (assuming format: "username#1234" or "123456789012345678")
+          const discordIdMatch = profile.discord_username.match(/(?:^|[^0-9])(\d{17,19})(?:[^0-9]|$)/);
+          const discordId = discordIdMatch ? discordIdMatch[1] : null;
+          
+          if (discordId) {
+            // Ping user with their ID
+            const message = `:rocket: PRIVATE TASK ALERT
+
+<@${discordId}> You have a new private task assigned to you!
+:link: View it here:
+https://tasknet.site/dashboard`;
+            
+            await fetch(webhookUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ content: message })
+            });
+          } else {
+            // No valid Discord ID found, send without ping
+            const message = `:rocket: PRIVATE TASK ALERT
+
+A new private task has been assigned to a user.
+:link: View it here:
+https://tasknet.site/dashboard`;
+            
+            await fetch(webhookUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ content: message })
+            });
+          }
+        } else {
+          // No Discord linked, send without ping
+          const message = `:rocket: PRIVATE TASK ALERT
+
+A new private task has been assigned to a user.
+:link: View it here:
+https://tasknet.site/dashboard`;
+          
+          await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: message })
+          });
+        }
+      } catch (err) {
+        console.error('Error sending Discord notification:', err);
+      }
     }
   };
 
