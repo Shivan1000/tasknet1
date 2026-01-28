@@ -267,70 +267,21 @@ const AdminPanel = () => {
 
   const fetchAndSyncUserKarma = async (email: string, username: string) => {
     try {
-      // Check cache first
-      const cached = redditKarmaCache.get(username);
-      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-        setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: cached.karma } : p));
-        return;
-      }
+      // Set default values without fetching anything
+      // Cache with default values
+      redditKarmaCache.set(username, {
+        karma: 0, // Default karma value
+        timestamp: Date.now(),
+        lastFetchedDate: new Date().toISOString().split('T')[0]
+      });
       
-      // Only use CORS proxy API to check if account exists (don't fetch karma)
-      const redditUrl = `https://www.reddit.com/user/${username}/about.json`;
-      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(redditUrl)}`;
+      // Update local state with default karma
+      setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: 0 } : p));
       
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-        
-        const response = await fetch(proxyUrl, {
-          headers: { 'Accept': 'application/json' },
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (response.ok) {
-          const json = await response.json();
-          
-          if (json && json.data) {
-            // Account exists, update with 0 karma (since we're not fetching it anymore)
-            // Cache the result with 0 karma
-            redditKarmaCache.set(username, {
-              karma: 0, // Don't store actual karma, use 0
-              timestamp: Date.now(),
-              lastFetchedDate: new Date().toISOString().split('T')[0]
-            });
-            
-            // Update local state with 0 karma
-            setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: 0 } : p));
-            
-            // Sync to DB with 0 karma
-            await supabase.from('profiles').update({ reddit_karma: 0 }).eq('email', email);
-            return;
-          }
-        } else if (response.status === 404) {
-          // Account not found, set karma to 0
-          redditKarmaCache.set(username, {
-            karma: 0,
-            timestamp: Date.now(),
-            lastFetchedDate: new Date().toISOString().split('T')[0]
-          });
-          
-          // Update local state with 0 karma
-          setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: 0 } : p));
-          
-          // Sync to DB with 0 karma
-          await supabase.from('profiles').update({ reddit_karma: 0 }).eq('email', email);
-          return;
-        }
-      } catch (err) {
-        console.error('Error checking reddit account for', username, err);
-      }
-      
-      // All attempts failed - keep existing karma or set to 0
-      // Don't overwrite with 0 if we have existing data
+      // Sync to DB with default karma
+      await supabase.from('profiles').update({ reddit_karma: 0 }).eq('email', email);
     } catch (err) {
-      console.error('Error fetching karma for', username, err);
+      console.error('Error setting default reddit karma for', username, err);
     }
   };
 
@@ -1066,7 +1017,7 @@ https://tasknet.site/dashboard`;
                         <div className="flex items-center gap-2">
                           <div className="text-[10px] opacity-60">u/{profile.reddit_username || 'not_connected'}</div>
                           {profile.reddit_username && profile.reddit_username !== 'not_connected' ? (
-                            <div className="text-[10px] opacity-60 text-blue-400">• checking status...</div>
+                            <div className="text-[10px] opacity-60 text-emerald-500">• linked</div>
                           ) : null}
                           {profile.discord_username && (
                             <div className="text-[10px] opacity-60 flex items-center gap-1">
@@ -1303,7 +1254,7 @@ https://tasknet.site/dashboard`;
                             u/{profile.reddit_username}
                             <ExternalLink size={10} />
                           </a>
-                          <span className="text-[10px] text-blue-400 font-bold">• checking status...</span>
+                          <span className="text-[10px] text-emerald-500 font-bold">• linked</span>
                         </div>
                       )}
                     </div>
