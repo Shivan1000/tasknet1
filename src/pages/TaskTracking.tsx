@@ -42,6 +42,109 @@ const TaskTracking = () => {
     setTimeout(() => setActiveAlert(prev => ({ ...prev, show: false })), 2000);
   };
 
+  const handleDirectClaim = async (taskId: string) => {
+    const email = getCookie('user_email') || localStorage.getItem('user_email');
+    if (!email) return;
+
+    // Check if user has linked a valid Reddit account
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('reddit_username')
+      .eq('email', email)
+      .single();
+
+    if (!profile?.reddit_username || profile.reddit_username === 'not_connected' || !profile.reddit_username.trim()) {
+      showAlert('You must link a valid Reddit account in your Profile settings to claim tasks.', 'error');
+      setTimeout(() => navigate('/account'), 2000);
+      return;
+    }
+
+    // Check cooldown period
+    const { data: userData } = await supabase
+      .from('profiles')
+      .select('last_task_completed_at, last_task_rejected_at')
+      .eq('email', email)
+      .single();
+
+    if (userData) {
+      const now = new Date();
+      
+      // Check 2-hour cooldown after successful completion
+      if (userData.last_task_completed_at) {
+        const completedAt = new Date(userData.last_task_completed_at);
+        const hoursSinceCompletion = (now.getTime() - completedAt.getTime()) / (1000 * 60 * 60);
+        if (hoursSinceCompletion < 2) {
+          const remainingMinutes = Math.ceil((2 - hoursSinceCompletion) * 60);
+          showAlert(`Please wait ${remainingMinutes} minutes before claiming another task.`, 'error');
+          return;
+        }
+      }
+      
+      // Check 1-hour cooldown after rejection
+      if (userData.last_task_rejected_at) {
+        const rejectedAt = new Date(userData.last_task_rejected_at);
+        const hoursSinceRejection = (now.getTime() - rejectedAt.getTime()) / (1000 * 60 * 60);
+        if (hoursSinceRejection < 1) {
+          const remainingMinutes = Math.ceil((1 - hoursSinceRejection) * 60);
+          showAlert(`Please wait ${remainingMinutes} minutes before claiming another task (previous rejection cooldown).`, 'error');
+          return;
+        }
+      }
+    }
+
+    // Fetch the current task to check privacy settings
+    const { data: currentTask, error: fetchError } = await supabase
+      .from('tasks')
+      .select('status, assigned_to')
+      .eq('id', taskId)
+      .single();
+
+    if (fetchError) {
+      showAlert('Error fetching task: ' + fetchError.message, 'error');
+      return;
+    }
+
+    // Check privacy: Only allow claiming if task is public or assigned to this user
+    if (currentTask.assigned_to !== 'All' && currentTask.assigned_to !== email) {
+      showAlert('You are not authorized to claim this private task.', 'error');
+      return;
+    }
+
+    // Check if the task is already claimed by someone else
+    if (currentTask.status !== 'available') {
+      showAlert('This task is no longer available.', 'error');
+      // Refresh tasks to update the UI
+      fetchTasks();
+      return;
+    }
+
+    // Attempt to claim the task
+    const { error: claimError } = await supabase
+      .from('tasks')
+      .update({ 
+        status: 'claimed', 
+        claimed_by: email 
+      })
+      .eq('id', taskId)
+      .eq('status', 'available');
+
+    if (claimError) {
+      if (claimError.message && claimError.message.toLowerCase().includes('no rows')) {
+        showAlert('Task has just been claimed by another user. Please refresh and try again.', 'error');
+      } else {
+        showAlert('Error claiming task: ' + claimError.message, 'error');
+      }
+      // Refresh tasks to update the UI
+      fetchTasks();
+    } else {
+      showAlert('Task claimed! Redirecting to task details...', 'success');
+      // Wait a bit to show the success message before navigating
+      setTimeout(() => {
+        navigate(`/task/${taskId}`);
+      }, 1500);
+    }
+  };
+
   const tabs = ['All Tasks', 'Active', 'Pending', 'Completed'];
 
   useEffect(() => {
@@ -229,12 +332,23 @@ const TaskTracking = () => {
                             Pending
                           </span>
                         ) : (
-                          <button 
-                            onClick={() => navigate(`/task/${task.id}`)}
-                            className="px-5 py-2 bg-blue-600 text-white rounded-lg text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20"
-                          >
-                            {task.status === 'claimed' ? 'Continue' : 'Claim'}
-                          </button>
+                          <div className="flex items-center justify-end">
+                            {task.status === 'available' ? (
+                              <button 
+                                onClick={() => handleDirectClaim(task.id)}
+                                className="px-5 py-2 bg-blue-600 text-white rounded-lg text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20"
+                              >
+                                Claim
+                              </button>
+                            ) : (
+                              <button 
+                                onClick={() => navigate(`/task/${task.id}`)}
+                                className="px-5 py-2 bg-blue-600 text-white rounded-lg text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20"
+                              >
+                                Continue
+                              </button>
+                            )}
+                          </div>
                         )}
                       </td>
                     </tr>
