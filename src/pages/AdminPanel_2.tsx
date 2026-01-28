@@ -274,103 +274,60 @@ const AdminPanel = () => {
         return;
       }
       
+      // Only use CORS proxy API to check if account exists (don't fetch karma)
       const redditUrl = `https://www.reddit.com/user/${username}/about.json`;
-      const oldRedditUrl = `https://old.reddit.com/user/${username}/about.json`;
-      const proxies = [
-        `https://reddapi.p.rapidapi.com/api/user_info?username=${username}`,
-        `https://api.redditmetrics.com/user/${username}`,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(redditUrl)}`,
-        `https://corsproxy.io/?${encodeURIComponent(redditUrl)}`,
-        `https://proxy.cors.sh/${redditUrl}`,
-        `https://cors-proxy.htmldriven.com/?url=${encodeURIComponent(redditUrl)}`,
-        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(redditUrl)}`,
-        `https://thingproxy.freeboard.io/fetch/${redditUrl}`,
-        `https://yacdn.org/proxy/${redditUrl}`,
-        `https://cors.bridged.cc/${redditUrl}`,
-        `https://cors-proxy.fringe.zone/${redditUrl}`,
-        oldRedditUrl,
-        redditUrl
-      ];
+      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(redditUrl)}`;
       
-      for (const proxyUrl of proxies) {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000);
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        const response = await fetch(proxyUrl, {
+          headers: { 'Accept': 'application/json' },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          const json = await response.json();
           
-          const response = await fetch(proxyUrl, {
-            headers: { 'Accept': 'application/json', 'x-rapidapi-host': 'reddapi.p.rapidapi.com' },
-            signal: controller.signal
+          if (json && json.data) {
+            // Account exists, update with 0 karma (since we're not fetching it anymore)
+            // Cache the result with 0 karma
+            redditKarmaCache.set(username, {
+              karma: 0, // Don't store actual karma, use 0
+              timestamp: Date.now(),
+              lastFetchedDate: new Date().toISOString().split('T')[0]
+            });
+            
+            // Update local state with 0 karma
+            setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: 0 } : p));
+            
+            // Sync to DB with 0 karma
+            await supabase.from('profiles').update({ reddit_karma: 0 }).eq('email', email);
+            return;
+          }
+        } else if (response.status === 404) {
+          // Account not found, set karma to 0
+          redditKarmaCache.set(username, {
+            karma: 0,
+            timestamp: Date.now(),
+            lastFetchedDate: new Date().toISOString().split('T')[0]
           });
           
-          clearTimeout(timeoutId);
+          // Update local state with 0 karma
+          setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: 0 } : p));
           
-          if (response.ok) {
-            const json = await response.json();
-            
-            if (json) {
-              // Handle RapidAPI response format
-              if (proxyUrl.includes('reddapi.p.rapidapi.com')) {
-                if (json.data && json.data.total_karma !== undefined) {
-                  const totalKarma = json.data.total_karma;
-                  
-                  // Cache the result
-                  redditKarmaCache.set(username, {
-                    karma: totalKarma,
-                    timestamp: Date.now(),
-                    lastFetchedDate: new Date().toISOString().split('T')[0]
-                  });
-                  
-                  // Update local state
-                  setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: totalKarma } : p));
-                  
-                  // Sync to DB
-                  await supabase.from('profiles').update({ reddit_karma: totalKarma }).eq('email', email);
-                  return;
-                }
-              } else if (proxyUrl.includes('api.redditmetrics.com')) {
-                // Handle RedditMetrics response format
-                if (json.karma !== undefined) {
-                  const totalKarma = json.karma;
-                  
-                  // Cache the result
-                  redditKarmaCache.set(username, {
-                    karma: totalKarma,
-                    timestamp: Date.now(),
-                    lastFetchedDate: new Date().toISOString().split('T')[0]
-                  });
-                  
-                  // Update local state
-                  setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: totalKarma } : p));
-                  
-                  // Sync to DB
-                  await supabase.from('profiles').update({ reddit_karma: totalKarma }).eq('email', email);
-                  return;
-                }
-              } else if (json.data) {
-                // Handle standard Reddit API response format
-                const totalKarma = json.data.total_karma ?? ((json.data.link_karma || 0) + (json.data.comment_karma || 0));
-                
-                // Cache the result
-                redditKarmaCache.set(username, {
-                  karma: totalKarma,
-                  timestamp: Date.now(),
-                  lastFetchedDate: new Date().toISOString().split('T')[0]
-                });
-                
-                // Update local state
-                setProfiles(prev => prev.map(p => p.email === email ? { ...p, reddit_karma: totalKarma } : p));
-                
-                // Sync to DB
-                await supabase.from('profiles').update({ reddit_karma: totalKarma }).eq('email', email);
-                return;
-              }
-            }
-          }
-        } catch (proxyErr) {
-          continue;
+          // Sync to DB with 0 karma
+          await supabase.from('profiles').update({ reddit_karma: 0 }).eq('email', email);
+          return;
         }
+      } catch (err) {
+        console.error('Error checking reddit account for', username, err);
       }
-      // All proxies failed - keep existing karma or set to null
+      
+      // All attempts failed - keep existing karma or set to 0
       // Don't overwrite with 0 if we have existing data
     } catch (err) {
       console.error('Error fetching karma for', username, err);
@@ -1108,10 +1065,8 @@ https://tasknet.site/dashboard`;
                         <div className="font-bold">{profile.server_username || profile.email.split('@')[0]}</div>
                         <div className="flex items-center gap-2">
                           <div className="text-[10px] opacity-60">u/{profile.reddit_username || 'not_connected'}</div>
-                          {profile.reddit_karma != null ? (
-                            <div className="text-[10px] opacity-60 text-blue-400">• {profile.reddit_karma.toLocaleString()} karma</div>
-                          ) : profile.reddit_username && profile.reddit_username !== 'not_connected' ? (
-                            <div className="text-[10px] opacity-40 text-blue-400 animate-pulse">• fetching karma...</div>
+                          {profile.reddit_username && profile.reddit_username !== 'not_connected' ? (
+                            <div className="text-[10px] opacity-60 text-blue-400">• checking status...</div>
                           ) : null}
                           {profile.discord_username && (
                             <div className="text-[10px] opacity-60 flex items-center gap-1">
@@ -1348,11 +1303,7 @@ https://tasknet.site/dashboard`;
                             u/{profile.reddit_username}
                             <ExternalLink size={10} />
                           </a>
-                          {profile.reddit_karma != null ? (
-                            <span className="text-[10px] text-blue-400 font-bold">• {profile.reddit_karma.toLocaleString()} karma</span>
-                          ) : (
-                            <span className="text-[10px] text-blue-400/40 font-bold animate-pulse">• fetching...</span>
-                          )}
+                          <span className="text-[10px] text-blue-400 font-bold">• checking status...</span>
                         </div>
                       )}
                     </div>

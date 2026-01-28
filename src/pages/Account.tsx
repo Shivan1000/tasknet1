@@ -58,135 +58,82 @@ const Account = () => {
     setFetchingReddit(true);
     setRedditStatus(null);
     
-    // Check cache first
+    // Check cache first for status only
     const cached = redditKarmaCache.get(username);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      setRedditKarma(cached.karma);
+      setRedditKarma(cached.karma); // Use cached karma value (could be 0)
       setRedditStatus(cached.status as any);
       setFetchingReddit(false);
       return;
     }
     
     try {
-      // Check cache first
-      const cached = redditKarmaCache.get(username);
-      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-        setRedditKarma(cached.karma);
-        setRedditStatus(cached.status as any);
-        setFetchingReddit(false);
-        return;
-      }
-      
+      // Only use CORS proxy API to check if account exists
       const redditUrl = `https://www.reddit.com/user/${username}/about.json`;
-      const oldRedditUrl = `https://old.reddit.com/user/${username}/about.json`;
-      const proxies = [
-        `https://reddapi.p.rapidapi.com/api/user_info?username=${username}`,
-        `https://api.redditmetrics.com/user/${username}`,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(redditUrl)}`,
-        `https://corsproxy.io/?${encodeURIComponent(redditUrl)}`,
-        `https://proxy.cors.sh/${redditUrl}`,
-        `https://cors-proxy.htmldriven.com/?url=${encodeURIComponent(redditUrl)}`,
-        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(redditUrl)}`,
-        `https://thingproxy.freeboard.io/fetch/${redditUrl}`,
-        `https://yacdn.org/proxy/${redditUrl}`,
-        `https://cors.bridged.cc/${redditUrl}`,
-        `https://cors-proxy.fringe.zone/${redditUrl}`,
-        oldRedditUrl,
-        redditUrl
-      ];
+      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(redditUrl)}`;
       
-      for (const proxyUrl of proxies) {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000);
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        const response = await fetch(proxyUrl, {
+          headers: { 'Accept': 'application/json' },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          const json = await response.json();
           
-          const response = await fetch(proxyUrl, {
-            headers: { 'Accept': 'application/json', 'x-rapidapi-host': 'reddapi.p.rapidapi.com' },
-            signal: controller.signal
-          });
-          
-          clearTimeout(timeoutId);
-          
-          if (response.ok) {
-            const json = await response.json();
+          if (json && json.data) {
+            // Account exists, set as active (don't set karma)
+            setRedditStatus('active');
+            setRedditKarma(0); // Don't show actual karma
             
-            if (json) {
-              // Handle RapidAPI response format
-              if (proxyUrl.includes('reddapi.p.rapidapi.com')) {
-                if (json.data && json.data.total_karma !== undefined) {
-                  const totalKarma = json.data.total_karma;
-                  
-                  setRedditStatus('active');
-                  setRedditKarma(totalKarma);
-                  
-                  // Cache the result
-                  redditKarmaCache.set(username, {
-                    karma: totalKarma,
-                    status: 'active',
-                    timestamp: Date.now(),
-                    lastFetchedDate: new Date().toISOString().split('T')[0]
-                  });
-                  
-                  setFetchingReddit(false);
-                  return;
-                }
-              } else if (proxyUrl.includes('api.redditmetrics.com')) {
-                // Handle RedditMetrics response format
-                if (json.karma !== undefined) {
-                  const totalKarma = json.karma;
-                  
-                  setRedditStatus('active');
-                  setRedditKarma(totalKarma);
-                  
-                  // Cache the result
-                  redditKarmaCache.set(username, {
-                    karma: totalKarma,
-                    status: 'active',
-                    timestamp: Date.now(),
-                    lastFetchedDate: new Date().toISOString().split('T')[0]
-                  });
-                  
-                  setFetchingReddit(false);
-                  return;
-                }
-              } else if (json.data) {
-                // Handle standard Reddit API response format
-                const userData = json.data;
-                const totalKarma = userData.total_karma ?? ((userData.link_karma || 0) + (userData.comment_karma || 0));
-                
-                setRedditStatus('active');
-                setRedditKarma(totalKarma);
-                
-                // Cache the result
-                redditKarmaCache.set(username, {
-                  karma: totalKarma,
-                  status: 'active',
-                  timestamp: Date.now(),
-                  lastFetchedDate: new Date().toISOString().split('T')[0]
-                });
-                
-                setFetchingReddit(false);
-                return;
-              }
-            }
+            // Cache the result with 0 karma (since we're not fetching it anymore)
+            redditKarmaCache.set(username, {
+              karma: 0, // Don't store actual karma, use 0
+              status: 'active',
+              timestamp: Date.now(),
+              lastFetchedDate: new Date().toISOString().split('T')[0]
+            });
+            
+            setFetchingReddit(false);
+            return;
           }
-        } catch (proxyErr: any) {
-          if (proxyErr.name === 'AbortError') {
-            continue;
-          }
-          continue;
+        } else if (response.status === 404) {
+          // Account not found
+          setRedditStatus('not_found');
+          setRedditKarma(0);
+          redditKarmaCache.set(username, {
+            karma: 0,
+            status: 'not_found',
+            timestamp: Date.now(),
+            lastFetchedDate: new Date().toISOString().split('T')[0]
+          });
+          setFetchingReddit(false);
+          return;
         }
+      } catch (err) {
+        console.error('Error checking reddit account for', username, err);
       }
       
-      // If we get here and status is still null, all proxies failed
+      // Default to not_found if all attempts fail
       if (redditStatus === null && redditKarma === null) {
         setRedditStatus('not_found');
-        setRedditKarma(null);
+        setRedditKarma(0);
+        redditKarmaCache.set(username, {
+          karma: 0,
+          status: 'not_found',
+          timestamp: Date.now(),
+          lastFetchedDate: new Date().toISOString().split('T')[0]
+        });
       }
     } catch (err) {
       if (redditKarma === null) {
         setRedditStatus('not_found');
-        setRedditKarma(null);
+        setRedditKarma(0);
       }
     } finally {
       setFetchingReddit(false);
@@ -401,14 +348,10 @@ const Account = () => {
                           ) : redditStatus ? (
                             <>
                               {redditStatus === 'active' ? (
-                                <>
-                                  <span className="text-[11px] font-bold text-gray-500">{redditKarma?.toLocaleString() || '---'} karma</span>
-                                  <span className="text-gray-700">•</span>
-                                  <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1.5">
-                                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-                                    Active
-                                  </span>
-                                </>
+                                <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1.5">
+                                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                                  Active
+                                </span>
                               ) : (
                                 <span className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${redditStatus === 'suspended' || redditStatus === 'banned' ? 'text-red-500' : 'text-gray-500'}`}>
                                   <div className={`w-1.5 h-1.5 rounded-full ${redditStatus === 'suspended' || redditStatus === 'banned' ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]' : 'bg-gray-500'}`}></div>

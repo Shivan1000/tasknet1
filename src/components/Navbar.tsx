@@ -126,21 +126,16 @@ const Navbar = () => {
 
   const fetchRedditData = async (username: string) => {
     try {
-      // Check cache first
+      // Check cache first for status only
       const cached = redditKarmaCache.get(username);
       if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-        setRedditKarma(cached.karma);
+        setRedditKarma(cached.karma); // Use cached karma value (could be 0)
         setRedditStatus(cached.status as any);
-        // Still sync to database if we have a valid value
-        if (cached.karma !== null) {
-          supabase.from('profiles')
-            .update({ reddit_karma: cached.karma })
-            .eq('email', userEmail);
-        }
+        // Still sync to database if we have a valid status
         return;
       }
       
-      // Only use CORS proxy API as requested
+      // Only use CORS proxy API to check if account exists
       const redditUrl = `https://www.reddit.com/user/${username}/about.json`;
       const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(redditUrl)}`;
       
@@ -159,37 +154,46 @@ const Navbar = () => {
           const json = await response.json();
           
           if (json && json.data) {
-            // Handle standard Reddit API response format
-            const userData = json.data;
-            const totalKarma = userData.total_karma ?? ((userData.link_karma || 0) + (userData.comment_karma || 0));
-            
+            // Account exists, set as active (don't set karma)
             setRedditStatus('active');
-            setRedditKarma(totalKarma);
             
-            // Cache the result
+            // Cache the result with 0 karma (since we're not fetching it anymore)
             redditKarmaCache.set(username, {
-              karma: totalKarma,
+              karma: 0, // Don't store actual karma, use 0
               status: 'active',
               timestamp: Date.now(),
               lastFetchedDate: new Date().toISOString().split('T')[0]
             });
             
-            // Sync karma to database
+            // Sync status to database (karma remains 0)
             supabase.from('profiles')
-              .update({ reddit_karma: totalKarma })
+              .update({ reddit_karma: 0 }) // Don't update actual karma, just set to 0
               .eq('email', userEmail);
             return;
           }
+        } else if (response.status === 404) {
+          // Account not found
+          setRedditStatus('not_found');
+          redditKarmaCache.set(username, {
+            karma: 0,
+            status: 'not_found',
+            timestamp: Date.now(),
+            lastFetchedDate: new Date().toISOString().split('T')[0]
+          });
+          return;
         }
       } catch (err) {
-        console.error('Error fetching karma for', username, err);
+        console.error('Error checking reddit account for', username, err);
       }
       
-      // Don't set to not_found if we already have a valid karma value
-      const currentKarma = redditKarma;
-      if (!redditStatus && currentKarma === null) {
-        setRedditStatus('not_found');
-      }
+      // Default to not_found if all attempts fail
+      setRedditStatus('not_found');
+      redditKarmaCache.set(username, {
+        karma: 0,
+        status: 'not_found',
+        timestamp: Date.now(),
+        lastFetchedDate: new Date().toISOString().split('T')[0]
+      });
     } catch (err) {
       // Only set to not_found if we don't have existing data
       if (redditKarma === null) {
@@ -248,15 +252,11 @@ const Navbar = () => {
               </React.Fragment>
             ))}
             
-            {/* Reddit Karma Display - Always Visible */}
+            {/* Reddit Status Display - Always Visible */}
             {profileData?.reddit_username && (
               <div className="flex flex-col ml-2 pl-4 border-l border-white/10 select-none animate-in fade-in slide-in-from-left-2 duration-500">
                 <div className="flex items-center gap-1.5">
                   <span className="text-[10px] font-black text-white/90 tracking-tight">u/{profileData.reddit_username}</span>
-                  <span className="text-gray-700 text-[10px]">•</span>
-                  <span className="text-[10px] font-black text-blue-400 tracking-tighter">
-                    {redditKarma !== null ? `${redditKarma.toLocaleString()} KARMA` : '---'}
-                  </span>
                 </div>
                 <div className="flex items-center gap-1 mt-0.5">
                   <div className={`w-1 h-1 rounded-full ${redditStatus === 'active' ? 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'bg-red-500'}`}></div>
