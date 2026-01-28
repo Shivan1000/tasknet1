@@ -318,49 +318,20 @@ https://tasknet.site/dashboard`;
         
         if (profile) {
           if (profile.discord_username) {
-            // Try to extract Discord ID from various formats
-            // Format 1: "username#1234" - extract the numbers after #
-            // Format 2: "123456789012345678" - direct ID
-            // Format 3: "username (123456789012345678)" - ID in parentheses
-            let discordId = null;
-            
-            // Try format 1: username#1234
-            const hashMatch = profile.discord_username.match(/#(\d{4})$/);
-            if (hashMatch) {
-              discordId = hashMatch[1];
-            }
-            
-            // Try format 2: direct 17-19 digit ID
-            if (!discordId) {
-              const directIdMatch = profile.discord_username.match(/(?:^|[^0-9])(\d{17,19})(?:[^0-9]|$)/);
-              if (directIdMatch) {
-                discordId = directIdMatch[1];
-              }
-            }
-            
-            // Try format 3: username (123456789012345678)
-            if (!discordId) {
-              const parenMatch = profile.discord_username.match(/\((\d{17,19})\)/);
-              if (parenMatch) {
-                discordId = parenMatch[1];
-              }
-            }
-            
-            if (discordId) {
-              // Ping user with their ID
-              const message = `:rocket: PRIVATE TASK ALERT
+            // Use the discord_username directly as the Discord ID for pinging
+            // Discord now uses usernames instead of the old #1234 format
+            const message = `:rocket: PRIVATE TASK ALERT
 
-<@${discordId}> You have a new private task assigned to you!
+<@${profile.discord_username}> You have a new private task assigned to you!
 :link: View it here:
 https://tasknet.site/dashboard`;
-              
-              await fetch(webhookUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: message })
-              });
-              return;
-            }
+            
+            await fetch(webhookUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ content: message })
+            });
+            return;
           }
           
           // No valid Discord ID found, ping with server username
